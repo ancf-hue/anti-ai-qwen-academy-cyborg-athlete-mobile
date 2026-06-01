@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: Наводчик</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2744 50%, #0d1536 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            position: relative;
+        }
+        
+        /* 🔵 СИНИЙ СТЕКЛЯННЫЙ ФОН (как в Уроке 1) */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(74, 246, 38, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(255, 42, 95, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #game-logo {
+            width: 60px; height: 60px; margin: 15px 0 10px;
+            filter: drop-shadow(0 0 15px rgba(255, 0, 60, 0.6));
+            transition: filter 0.3s;
+            position: relative; z-index: 2;
+        }
+
+        #stats-panel {
+            width: 95%; max-width: 400px;
+            display: flex; justify-content: space-around;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative; z-index: 2;
+        }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 20px; font-weight: bold; color: #ff2a5f; }
+        .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+
+        #game-area {
+            width: 95%; max-width: 400px;
+            flex: 1;
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 0, 60, 0.3);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+            margin-bottom: 15px;
+            position: relative; z-index: 2;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        #overlay-text {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            color: rgba(255,255,255,0.5);
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #fire-btn-container {
+            width: 95%; max-width: 400px;
+            padding-bottom: 15px;
+            position: relative; z-index: 2;
+        }
+        
+        #fire-btn {
+            width: 100%;
+            height: 70px;
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.9), rgba(179, 0, 45, 0.9));
+            border: 2px solid rgba(255, 100, 150, 0.6);
+            border-radius: 16px;
+            color: white;
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 rgba(100, 0, 30, 0.8), 0 15px 30px rgba(255, 42, 95, 0.4);
+            transition: all 0.1s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #fire-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 rgba(100, 0, 30, 0.8), 0 5px 15px rgba(255, 42, 95, 0.4);
+        }
+
+        /* 🔵 СТАРТОВЫЙ ЭКРАН — СИНИЙ СТЕКЛЯННЫЙ (как в Уроке 1) */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center; justify-content: center;
+            z-index: 99999; padding: 20px;
+        }
+        .menu-box {
+            background: rgba(22, 31, 51, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 32px 28px; border-radius: 24px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            max-width: 400px; width: 100%;
+            text-align: center;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        .start-logo {
+            width: 90px; height: 90px;
+            margin: 0 auto 24px;
+            display: block;
+            filter: drop-shadow(0 0 25px rgba(74, 246, 38, 0.7));
+        }
+        .menu-box h1 {
+            margin-bottom: 18px;
+            font-size: 28px;
+            color: #ff2a5f;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(255, 42, 95, 0.6);
+        }
+        .menu-box p { margin-bottom: 26px; color: #94a3b8; line-height: 1.6; font-size: 15px; }
+        .menu-box .highlight { color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .btn-start {
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.95), rgba(179, 0, 45, 0.95));
+            color: #fff; font-size: 19px; width: 100%; padding: 18px;
+            border-radius: 16px; border: none; font-weight: 900; cursor: pointer;
+            box-shadow:
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 20px 40px rgba(255, 42, 95, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+        .btn-start:active {
+            transform: translateY(8px);
+            box-shadow:
+                0 0 0 rgba(139, 0, 45, 0.8),
+                0 10px 20px rgba(255, 42, 95, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .btn-start:hover {
+            filter: brightness(1.15);
+            box-shadow:
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 20px 50px rgba(255, 42, 95, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ (как в Уроке 1) */
+        #donation-footer {
+            width: 100%; max-width: 400px;
+            background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 0, 60, 0.2);
+            border-radius: 16px;
+            padding: 15px; text-align: center; margin-bottom: 15px;
+            position: relative; z-index: 2;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        #donation-footer h3 { font-size: 16px; margin-bottom: 5px; color: #38bdf8; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin: 5px 0; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px; margin: 10px 0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .phone-num { font-family: monospace; font-size: 16px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .main-link {
+            display: inline-block;
+            font-size: 16px;
+            color: #4af626;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover {
+            background: rgba(74, 246, 38, 0.2);
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+            position: relative; z-index: 2;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #ff2a5f; color: #0b0f19; border-color: #ff2a5f;
+            box-shadow: 0 0 15px rgba(255,42,95,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <!-- СТАРТОВЫЙ ЭКРАН — 🔵 СИНИЙ СТЕКЛЯННЫЙ -->
+    <div id="start-overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" class="start-logo">
+            <h1 data-i18n="title">🏛️ КИБОРГ-НАВОДЧИК</h1>
+            <p data-i18n="desc">
+                <strong>Тренировка:</strong> Контроль отдачи (Recoil Control).<br>
+                <br>
+                🎯 <b>Задача:</b> Удерживай красный прицел внутри зелёной цели.<br>
+                🔥 Нажми и держи кнопку <b>ОГОНЬ</b>.<br>
+                📱 Води пальцем по экрану, чтобы гасить отдачу.<br><br>
+                <i data-i18n="goal">Твоя цель — 90% точности.</i>
+            </p>
+            <button class="btn-start" onclick="startGame()" data-i18n="start">▶ НАЧАТЬ ДРИЛЬ</button>
+        </div>
+    </div>
+
+    <!-- ЛОГОТИП -->
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <!-- СТАТИСТИКА -->
+    <div id="stats-panel">
+        <div class="stat-item">
+            <div class="stat-val" id="score-val">0%</div>
+            <div class="stat-lbl" data-i18n="accuracy">Точность</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-val" id="timer-val">30</div>
+            <div class="stat-lbl" data-i18n="seconds">Секунд</div>
+        </div>
+    </div>
+
+    <!-- ИГРОВАЯ ЗОНА -->
+    <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+        <div id="overlay-text" data-i18n="overlay">ДЕРЖИ ПРИЦЕЛ НА ЦЕЛИ</div>
+    </div>
+
+    <!-- КНОПКА ОГОНЬ -->
+    <div id="fire-btn-container">
+        <button id="fire-btn" data-i18n="fire">🔥 ОГОНЬ</button>
+    </div>
+
+    <!-- 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-box">
+            <div style="text-align: left;">
+                <div style="font-size:10px; color:#64748b; margin-bottom:3px;" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+                <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            </div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p style="font-size:10px; color:#4af626;" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p style="font-size:12px; color:#f472b6; margin:8px 0;" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p style="font-size:10px; color:#64748b; margin-top:5px;" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: '🏛️ КИБОРГ-НАВОДЧИК',
+                desc: '<strong>Тренировка:</strong> Контроль отдачи (Recoil Control).<br><br>🎯 <b>Задача:</b> Удерживай красный прицел внутри зелёной цели.<br>🔥 Нажми и держи кнопку <b>ОГОНЬ</b>.<br>📱 Води пальцем по экрану, чтобы гасить отдачу.<br><br><i>Твоя цель — 90% точности.</i>',
+                start: '▶ НАЧАТЬ ДРИЛЬ',
+                goal: 'Твоя цель — 90% точности.',
+                accuracy: 'Точность', seconds: 'Секунд', overlay: 'ДЕРЖИ ПРИЦЕЛ НА ЦЕЛИ', fire: '🔥 ОГОНЬ',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                finish: 'ТРЕНИРОВКА ЗАВЕРШЕНА',
+                passed: '🏆 УРОВЕНЬ КИБОРГА! Ты стабилен как скрипт.',
+                good: '⚡ ХОРОШИЙ РЕЗУЛЬТАТ. Но отдача всё ещё дергает.',
+                bad: '📉 СЛАБО. Твой палец не справляется с M416.',
+                retry: '🔄 ПОВТОРИТЬ'
+            },
+            en: {
+                title: '🏛️ CYBORG AIM',
+                desc: '<strong>Training:</strong> Recoil Control.<br><br>🎯 <b>Goal:</b> Keep red crosshair inside green target.<br>🔥 Hold <b>FIRE</b> button.<br>📱 Drag finger to control recoil.<br><br><i>Your goal: 90% accuracy.</i>',
+                start: '▶ START DRILL',
+                goal: 'Your goal: 90% accuracy.',
+                accuracy: 'Accuracy', seconds: 'Seconds', overlay: 'KEEP CROSSHAIR ON TARGET', fire: '🔥 FIRE',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                finish: 'TRAINING COMPLETE',
+                passed: '🏆 CYBORG LEVEL! You are stable as a script.',
+                good: '⚡ GOOD RESULT. But recoil still jerks.',
+                bad: '📉 WEAK. Your finger can\'t handle M416.',
+                retry: '🔄 RETRY'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+        }
+
+        // ⚙️ НАСТРОЙКИ
+        const GAME_DURATION = 30;
+        const RECOIL_FORCE = 1.5;
+        const GOAL_ACC = 90;
+        
+        let isPlaying = false;
+        let isFiring = false;
+        let timeLeft = GAME_DURATION;
+        let hitFrames = 0;
+        let totalFrames = 0;
+        
+        let target = { x: 0, y: 0, radius: 40 };
+        let crosshair = { x: 0, y: 0, radius: 8 };
+        let touch = { active: false, x: 0, y: 0 };
+        
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+        const scoreEl = document.getElementById('score-val');
+        const timerEl = document.getElementById('timer-val');
+        const fireBtn = document.getElementById('fire-btn');
+        
+        document.getElementById('btn-copy-action').addEventListener('click', function() {
+            const num = document.querySelector('.phone-num').textContent;
+            navigator.clipboard.writeText(num).then(() => {
+                this.textContent = '✅ ' + i18n[lang].copy;
+                setTimeout(() => this.textContent = '📋 ' + i18n[lang].copy, 1500);
+            });
+        });
+
+        function resize() {
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+            target.x = canvas.width / 2;
+            target.y = canvas.height / 2;
+            crosshair.x = canvas.width / 2;
+            crosshair.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); touch.active = true; updateTouch(e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); updateTouch(e); }, { passive: false });
+        canvas.addEventListener('touchend', () => { touch.active = false; });
+
+        function updateTouch(e) {
+            const rect = canvas.getBoundingClientRect();
+            touch.x = e.touches[0].clientX - rect.left;
+            touch.y = e.touches[0].clientY - rect.top;
+        }
+
+        fireBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isFiring = true; });
+        fireBtn.addEventListener('touchend', (e) => { e.preventDefault(); isFiring = false; });
+        fireBtn.addEventListener('mousedown', () => isFiring = true);
+        fireBtn.addEventListener('mouseup', () => isFiring = false);
+
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            totalFrames++;
+            if (totalFrames % 60 === 0) {
+                timeLeft--;
+                timerEl.textContent = timeLeft;
+                if (timeLeft <= 0) endGame();
+            }
+
+            target.x += (Math.random() - 0.5) * 2;
+            target.y += (Math.random() - 0.5) * 2;
+            if (target.x < 50) target.x = 50;
+            if (target.x > canvas.width - 50) target.x = canvas.width - 50;
+            if (target.y < 50) target.y = 50;
+            if (target.y > canvas.height - 50) target.y = canvas.height - 50;
+
+            if (isFiring) {
+                crosshair.x += (Math.random() - 0.5) * RECOIL_FORCE * 4;
+                crosshair.y -= RECOIL_FORCE * 2; 
+            }
+
+            if (touch.active) {
+                crosshair.x += (touch.x - crosshair.x) * 0.15;
+                crosshair.y += (touch.y - crosshair.y) * 0.15;
+            } else {
+                crosshair.x += (Math.random() - 0.5) * 0.5;
+                crosshair.y += (Math.random() - 0.5) * 0.5;
+            }
+
+            crosshair.x = Math.max(0, Math.min(canvas.width, crosshair.x));
+            crosshair.y = Math.max(0, Math.min(canvas.height, crosshair.y));
+
+            const dx = crosshair.x - target.x;
+            const dy = crosshair.y - target.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < target.radius) hitFrames++;
+
+            draw();
+            updateScore();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, target.radius, 0, Math.PI * 2);
+            ctx.fillStyle = isFiring ? 'rgba(0, 255, 0, 0.3)' : 'rgba(0, 255, 0, 0.1)';
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#4af626';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(target.x - 10, target.y);
+            ctx.lineTo(target.x + 10, target.y);
+            ctx.moveTo(target.x, target.y - 10);
+            ctx.lineTo(target.x, target.y + 10);
+            ctx.strokeStyle = 'rgba(74, 246, 38, 0.5)';
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(crosshair.x, crosshair.y, crosshair.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff2a5f';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+            if (touch.active) {
+                ctx.beginPath();
+                ctx.moveTo(crosshair.x, crosshair.y);
+                ctx.lineTo(touch.x, touch.y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.stroke();
+            }
+        }
+
+        function updateScore() {
+            const accuracy = Math.round((hitFrames / totalFrames) * 100) || 0;
+            scoreEl.textContent = accuracy + '%';
+            if (accuracy >= 80) scoreEl.style.color = '#4af626';
+            else if (accuracy >= 50) scoreEl.style.color = '#fbbf24';
+            else scoreEl.style.color = '#ff2a5f';
+        }
+
+        function startGame() {
+            document.getElementById('start-overlay').style.display = 'none';
+            isPlaying = true;
+            timeLeft = GAME_DURATION;
+            hitFrames = 0;
+            totalFrames = 0;
+            timerEl.textContent = timeLeft;
+            scoreEl.textContent = '0%';
+            gameLoop();
+        }
+
+        function endGame() {
+            isPlaying = false;
+            const accuracy = Math.round((hitFrames / totalFrames) * 100) || 0;
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА ===
+            if (accuracy >= GOAL_ACC) {
+                localStorage.setItem('lesson_4_passed', 'true');
+            } else {
+                localStorage.removeItem('lesson_4_passed');
+            }
+            // === КОНЕЦ ПАТЧА ===
+            
+            let msg = "", color = '#ff2a5f';
+            if (accuracy >= 90) { msg = i18n[lang].passed; color = '#4af626'; }
+            else if (accuracy >= 70) { msg = i18n[lang].good; color = '#fbbf24'; }
+            else { msg = i18n[lang].bad; }
+            
+            document.getElementById('start-overlay').style.display = 'flex';
+            document.querySelector('.menu-box').innerHTML = `
+                <img src="favicon.ico" alt="Logo" class="start-logo">
+                <h1 style="color:${color}">🏁 ${i18n[lang].finish}</h1>
+                <p style="font-size:16px; margin-bottom:20px;">
+                    ${lang==='ru'?'Точность:':'Accuracy:'} <b style="font-size:24px; color:${color}">${accuracy}%</b>
+                </p>
+                <p style="margin-bottom:25px; line-height:1.6; color:${color}">${msg}</p>
+                <button class="btn-start" onclick="location.reload()" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#0b0f19;">
+                    ${i18n[lang].retry}
+                </button>
+            `;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => setLang(lang));
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>

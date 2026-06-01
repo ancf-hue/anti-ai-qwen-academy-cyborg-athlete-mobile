@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Симулятор: Свой/Чужой</title>
+    
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        /* 🔵 СИНЙ СТЕКЛЯННЫЙ ФОН */
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2744 50%, #0d1536 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 15px;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Эффект стеклянной панели на фоне */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(74, 246, 38, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(255, 42, 95, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        #logo-container {
+            width: 56px; height: 56px; margin: 10px 0 15px;
+            visibility: hidden;
+        }
+        
+        #ui-layer {
+            display: flex; justify-content: space-between;
+            width: 100%; max-width: 400px;
+            font-size: 15px; font-weight: bold; text-transform: uppercase;
+            margin-bottom: 12px; padding: 0 5px;
+            position: relative;
+            z-index: 1;
+        }
+        .metric { 
+            color: #4af626; 
+            font-size: 16px;
+            text-shadow: 0 0 10px rgba(74, 246, 38, 0.5);
+        }
+        
+        /* 🔵 СТЕКЛЯННАЯ ИГРОВАЯ ЗОНА */
+        #target-zone {
+            width: 280px; height: 300px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; 
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 20px; 
+            overflow: hidden;
+            box-shadow: 
+                0 8px 32px 0 rgba(0, 0, 0, 0.37),
+                inset 0 0 20px rgba(56, 189, 248, 0.1),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            z-index: 1;
+        }
+        
+        #zone-center {
+            position: absolute; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            opacity: 1; transition: opacity 0.1s; z-index: 5;
+            text-align: center; padding: 10px;
+        }
+        #zone-center.hidden { opacity: 0; pointer-events: none; }
+        
+        #zone-center img {
+            width: 110px; height: 110px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 20px rgba(74, 246, 38, 0.6));
+        }
+        #zone-center .sub-text {
+            font-size: 14px; color: #38bdf8; letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        
+        .card {
+            width: 100%; height: 100%; border-radius: 18px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            font-size: 64px; font-weight: 900; position: absolute;
+            opacity: 0; transform: scale(0.92); transition: opacity 0.08s, transform 0.08s;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+        .card.visible { opacity: 1; transform: scale(1); }
+        .card.enemy { 
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.8), rgba(179, 0, 45, 0.9));
+            border: 3px solid rgba(255, 77, 126, 0.8);
+            box-shadow: 
+                0 0 40px rgba(255, 42, 95, 0.6),
+                inset 0 0 20px rgba(255, 255, 255, 0.2),
+                0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .card.friend { 
+            background: linear-gradient(135deg, rgba(0, 189, 86, 0.8), rgba(0, 112, 50, 0.9));
+            border: 3px solid rgba(38, 230, 123, 0.8);
+            box-shadow: 
+                0 0 40px rgba(0, 189, 86, 0.6),
+                inset 0 0 20px rgba(255, 255, 255, 0.2),
+                0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        .card-label { font-size: 19px; margin-top: 12px; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+        
+        /* 🎮 3D СТЕКЛЯННЫЕ КНОПКИ */
+        #controls {
+            display: flex; gap: 15px; width: 100%; max-width: 400px;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        button {
+            flex: 1; padding: 22px 18px; font-size: 17px; font-weight: 900;
+            border: none; border-radius: 16px; cursor: pointer;
+            text-transform: uppercase; color: #fff;
+            touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.15s;
+            letter-spacing: 1px;
+        }
+        
+        /* 🔴 КНОПКА ОГОНЬ - 3D КРАСНОЕ СТЕКЛО */
+        #btn-fire {
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.9), rgba(179, 0, 45, 0.95));
+            border: 2px solid rgba(255, 100, 150, 0.6);
+            box-shadow: 
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 15px 30px rgba(255, 42, 95, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.3),
+                inset 0 -2px 10px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        #btn-fire:active:not(:disabled) {
+            transform: translateY(8px);
+            box-shadow: 
+                0 0 0 rgba(139, 0, 45, 0.8),
+                0 5px 15px rgba(255, 42, 95, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.4);
+        }
+        #btn-fire:hover:not(:disabled) {
+            filter: brightness(1.2);
+            box-shadow: 
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 15px 40px rgba(255, 42, 95, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+        }
+        
+        /* 🔵 КНОПКА СТОП - СЕРАЯ */
+        #btn-stop { 
+            background: linear-gradient(135deg, rgba(100, 116, 139, 0.9), rgba(71, 85, 105, 0.95));
+            border: 2px solid rgba(148, 163, 184, 0.5);
+            box-shadow: 
+                0 8px 0 rgba(51, 65, 85, 0.8),
+                0 15px 30px rgba(100, 116, 139, 0.3),
+                inset 0 2px 10px rgba(255, 255, 255, 0.2);
+            flex: 0.6; min-width: 70px; font-size: 15px; padding: 22px 10px;
+        }
+        #btn-stop:active:not(:disabled) {
+            transform: translateY(8px);
+            box-shadow: 
+                0 0 0 rgba(51, 65, 85, 0.8),
+                0 5px 15px rgba(100, 116, 139, 0.3),
+                inset 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 🟢 КНОПКА УКРЫТИЕ - 3D ЗЕЛЁНОЕ СТЕКЛО */
+        #btn-cover {
+            background: linear-gradient(135deg, rgba(0, 189, 86, 0.9), rgba(0, 112, 50, 0.95));
+            border: 2px solid rgba(38, 230, 123, 0.6);
+            box-shadow: 
+                0 8px 0 rgba(0, 100, 50, 0.8),
+                0 15px 30px rgba(0, 189, 86, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.3),
+                inset 0 -2px 10px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        #btn-cover:active:not(:disabled) {
+            transform: translateY(8px);
+            box-shadow: 
+                0 0 0 rgba(0, 100, 50, 0.8),
+                0 5px 15px rgba(0, 189, 86, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.4);
+        }
+        #btn-cover:hover:not(:disabled) {
+            filter: brightness(1.2);
+            box-shadow: 
+                0 8px 0 rgba(0, 100, 50, 0.8),
+                0 15px 40px rgba(0, 189, 86, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+        }
+        
+        button:disabled { 
+            opacity: 0.4; 
+            pointer-events: none;
+            filter: grayscale(0.5);
+        }
+        
+        /* Стеклянный футер */
+        #donation-footer {
+            width: 100%; max-width: 400px; 
+            background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 16px;
+            padding: 15px; text-align: center; margin-top: 10px;
+            box-shadow: 
+                0 4px 20px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+        #donation-footer h3 { font-size: 15px; margin-bottom: 8px; color: #38bdf8; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 12px; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); 
+            border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .phone-num { font-family: monospace; font-size: 15px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .catalog-link { display: inline-block; font-size: 12px; color: #10b981; text-decoration: none; font-weight: bold; margin-top: 5px; }
+        .main-link {
+            display: inline-block;
+            font-size: 16px;
+            color: #4af626;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover {
+            background: rgba(74, 246, 38, 0.2);
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Стартовый экран со стеклом */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center; justify-content: center;
+            z-index: 99999; padding: 20px;
+        }
+        .menu-box {
+            background: rgba(22, 31, 51, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 32px 28px; border-radius: 24px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            max-width: 400px; width: 100%;
+            text-align: center;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        
+        .start-logo {
+            width: 90px; height: 90px;
+            margin: 0 auto 24px;
+            display: block;
+            filter: drop-shadow(0 0 25px rgba(74, 246, 38, 0.7));
+        }
+        
+        .menu-box h1 { 
+            margin-bottom: 18px; 
+            font-size: 32px; 
+            color: #4af626;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(74, 246, 38, 0.6);
+        }
+        .menu-box p { margin-bottom: 26px; color: #94a3b8; line-height: 1.6; font-size: 15px; }
+        .menu-box .highlight { color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        #btn-start { 
+            background: linear-gradient(135deg, rgba(74, 246, 38, 0.95), rgba(0, 189, 86, 0.95)); 
+            color: #0b0f19; font-size: 20px; width: 100%; padding: 18px; 
+            border-radius: 16px; border: none; font-weight: 900; cursor: pointer;
+            box-shadow: 
+                0 8px 0 rgba(0, 120, 50, 0.8),
+                0 20px 40px rgba(74, 246, 38, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+        #btn-start:active {
+            transform: translateY(8px);
+            box-shadow: 
+                0 0 0 rgba(0, 120, 50, 0.8),
+                0 10px 20px rgba(74, 246, 38, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        #btn-start:hover {
+            filter: brightness(1.15);
+            box-shadow: 
+                0 8px 0 rgba(0, 120, 50, 0.8),
+                0 20px 50px rgba(74, 246, 38, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        #status-indicator {
+            font-size: 13px; color: #64748b; margin-top: 8px;
+            min-height: 18px; text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+        #status-indicator.ready { color: #4af626; text-shadow: 0 0 10px rgba(74, 246, 38, 0.5); }
+        #status-indicator.waiting { color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+    </style>
+</head>
+<body>
+
+    <!-- СТАРТОВЫЙ ЭКРАН -->
+    <div id="start-overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" class="start-logo">
+            <h1>СВОЙ / ЧУЖОЙ</h1>
+            <p><strong>Цель:</strong> <span class="highlight">100 повторений</span><br>
+               Карточка мелькает на <span class="highlight">0.3 сек</span><br><br>
+               🔴 Враг → жми <b>ОГОНЬ</b><br>
+               🟢 Свой → жми <b>УКРЫТИЕ</b><br><br>
+               ✅ Цель: <b>≥90% точности</b></p>
+            <button id="btn-start">▶ ЗАПУСТИТЬ ТЕСТ</button>
+        </div>
+    </div>
+
+    <div id="logo-container"></div>
+
+    <!-- СТАТИСТИКА -->
+    <div id="ui-layer">
+        <div>Раунд: <span id="progress" class="metric">0/100</span></div>
+        <div>Точность: <span id="accuracy" class="metric">100%</span></div>
+    </div>
+
+    <!-- ИГРОВАЯ ЗОНА -->
+    <div id="target-zone">
+        <div id="zone-center">
+            <img src="favicon.ico" alt="Logo">
+            <div class="sub-text">Ждите сигнал...</div>
+        </div>
+        
+        <div id="game-card" class="card">
+            <span id="card-icon">🎯</span>
+            <div id="card-text" class="card-label">ЦЕЛЬ</div>
+        </div>
+    </div>
+
+    <!-- СТАТУС -->
+    <div id="status-indicator" class="ready">✓ Готов к старту</div>
+
+    <!-- 3D СТЕКЛЯННЫЕ КНОПКИ -->
+    <div id="controls">
+        <button id="btn-fire" disabled>🔥 ОГОНЬ</button>
+        <button id="btn-stop" title="Остановить тест">⏹ СТОП</button>
+        <button id="btn-cover" disabled>🛡️ УКРЫТИЕ</button>
+    </div>
+
+    <!-- ФУТЕР -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ</h3>
+        <p>Приложение бесплатное. Если помогло — можете поддержать разработку.</p>
+        <div class="phone-box">
+            <span class="phone-num" id="num-to-copy">8-920-227-56-76</span>
+            <button class="btn-copy" id="btn-copy-action">📋 Копировать</button>
+        </div>
+        <p style="font-size:10px; color:#4b5563; margin-bottom:8px;">📱 СБП • Без комиссии • Воронеж</p>
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+    </div>
+
+    <script>
+        const CONFIG = {
+            TOTAL: 100,
+            FLASH_MS: 300,
+            MIN_DELAY: 700,
+            MAX_DELAY: 1500,
+            GOAL_ACC: 90
+        };
+
+        let state = {
+            attempt: 0,
+            correct: 0,
+            currentType: null,
+            isActive: false,
+            answered: false,
+            timers: []
+        };
+
+        const ui = {
+            overlay: document.getElementById('start-overlay'),
+            menuBox: document.querySelector('.menu-box'),
+            btnStart: document.getElementById('btn-start'),
+            btnFire: document.getElementById('btn-fire'),
+            btnCover: document.getElementById('btn-cover'),
+            btnStop: document.getElementById('btn-stop'),
+            card: document.getElementById('game-card'),
+            cardIcon: document.getElementById('card-icon'),
+            cardText: document.getElementById('card-text'),
+            zoneCenter: document.getElementById('zone-center'),
+            progress: document.getElementById('progress'),
+            accuracy: document.getElementById('accuracy'),
+            status: document.getElementById('status-indicator'),
+            copyBtn: document.getElementById('btn-copy-action'),
+            copyNum: document.getElementById('num-to-copy')
+        };
+
+        ui.copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(ui.copyNum.textContent)
+                .then(() => {
+                    ui.copyBtn.textContent = '✅ Скопировано';
+                    setTimeout(() => ui.copyBtn.textContent = '📋 Копировать', 1800);
+                })
+                .catch(() => {
+                    ui.copyBtn.textContent = '❌ Ошибка';
+                    setTimeout(() => ui.copyBtn.textContent = '📋 Копировать', 1800);
+                });
+        });
+
+        ui.btnStart.addEventListener('click', startGame);
+        ui.btnFire.addEventListener('click', () => makeChoice('enemy'));
+        ui.btnCover.addEventListener('click', () => makeChoice('friend'));
+        ui.btnStop.addEventListener('click', stopGame);
+
+        document.addEventListener('keydown', (e) => {
+            if (!state.isActive) return;
+            if (e.key === 'f' || e.key === 'а' || e.key === 'ArrowLeft') { e.preventDefault(); makeChoice('enemy'); }
+            if (e.key === 'c' || e.key === 'с' || e.key === 'ArrowRight') { e.preventDefault(); makeChoice('friend'); }
+            if (e.key === 'Escape' || e.key === 'х' || e.key === 'Backspace') { e.preventDefault(); stopGame(); }
+        });
+
+        function startGame() {
+            ui.overlay.style.display = 'none';
+            resetState();
+            updateUI();
+            ui.status.textContent = '✓ Ждите первую карточку...';
+            ui.status.className = 'ready';
+            setTimeout(showCard, 400);
+        }
+
+        function resetState() {
+            state = { attempt: 0, correct: 0, currentType: null, isActive: true, answered: false, timers: [] };
+            ui.btnFire.disabled = false;
+            ui.btnCover.disabled = false;
+            ui.btnStart.disabled = true;
+            ui.btnStop.disabled = false;
+        }
+
+        function showCard() {
+            if (!state.isActive || state.attempt >= CONFIG.TOTAL) { endGame(); return; }
+            
+            state.answered = false;
+            state.attempt++;
+            state.currentType = Math.random() < 0.5 ? 'enemy' : 'friend';
+            
+            ui.zoneCenter.classList.add('hidden');
+            ui.card.className = 'card visible ' + state.currentType;
+            if (state.currentType === 'enemy') {
+                ui.cardIcon.textContent = '😡';
+                ui.cardText.textContent = 'ВРАГ';
+            } else {
+                ui.cardIcon.textContent = '🥶';
+                ui.cardText.textContent = 'СВОЙ';
+            }
+            
+            ui.status.textContent = '⚡ ОТВЕЧАЙТЕ!';
+            ui.status.className = 'waiting';
+            
+            const hideTimer = setTimeout(() => {
+                hideCard();
+                if (!state.answered) {
+                    updateUI();
+                    scheduleNext();
+                }
+            }, CONFIG.FLASH_MS);
+            state.timers.push(hideTimer);
+        }
+
+        function hideCard() {
+            ui.card.className = 'card';
+            ui.zoneCenter.classList.remove('hidden');
+            ui.status.textContent = '⏳ Следующая...';
+            ui.status.className = 'ready';
+        }
+
+        function makeChoice(choice) {
+            if (!state.isActive || state.answered) return;
+            state.answered = true;
+            
+            if (choice === state.currentType) state.correct++;
+            
+            updateUI();
+            hideCard();
+            
+            state.timers.forEach(t => clearTimeout(t));
+            state.timers = [];
+            scheduleNext();
+        }
+
+        function scheduleNext() {
+            if (state.attempt >= CONFIG.TOTAL) { endGame(); return; }
+            const delay = Math.random() * (CONFIG.MAX_DELAY - CONFIG.MIN_DELAY) + CONFIG.MIN_DELAY;
+            const nextTimer = setTimeout(showCard, delay);
+            state.timers.push(nextTimer);
+        }
+
+        function stopGame() {
+            if (!state.isActive) return;
+            state.timers.forEach(t => clearTimeout(t));
+            state.timers = [];
+            state.isActive = false;
+            hideCard();
+            ui.btnFire.disabled = true;
+            ui.btnCover.disabled = true;
+            ui.btnStop.disabled = true;
+            ui.status.textContent = '⏹ Тест остановлен';
+            ui.status.className = 'waiting';
+            showResult(true);
+        }
+
+        function endGame() {
+            state.isActive = false;
+            ui.btnFire.disabled = true;
+            ui.btnCover.disabled = true;
+            ui.btnStop.disabled = true;
+            showResult(false);
+        }
+
+        function updateUI() {
+            ui.progress.textContent = state.attempt + '/' + CONFIG.TOTAL;
+            if (state.attempt > 0) {
+                const acc = Math.round((state.correct / state.attempt) * 100);
+                ui.accuracy.textContent = acc + '%';
+                ui.accuracy.style.color = acc >= CONFIG.GOAL_ACC ? '#4af626' : '#ff6b6b';
+            } else {
+                ui.accuracy.textContent = '100%';
+                ui.accuracy.style.color = '#4af626';
+            }
+        }
+
+        function showResult(wasStopped) {
+            ui.overlay.style.display = 'flex';
+            const acc = state.attempt > 0 ? Math.round((state.correct / state.attempt) * 100) : 0;
+            const passed = acc >= CONFIG.GOAL_ACC;
+            const total = wasStopped ? state.attempt : CONFIG.TOTAL;
+            
+            ui.menuBox.innerHTML = 
+                '<img src="favicon.ico" alt="Logo" class="start-logo">' +
+                '<h1 style="color:' + (passed ? '#4af626' : (wasStopped ? '#fbbf24' : '#ff6b6b')) + '">' +
+                (wasStopped ? '⏹ ТЕСТ ОСТАНОВЛЕН' : (passed ? '✅ ТЕСТ ПРОЙДЕН!' : '❌ ТЕСТ НЕ ПРОЙДЕН')) +
+                '</h1>' +
+                '<p style="margin-bottom:18px">' +
+                'Раундов: <b>' + total + '/' + CONFIG.TOTAL + '</b><br>' +
+                'Правильно: <b>' + state.correct + '</b><br>' +
+                'Точность: <b style="font-size:20px;color:' + (passed ? '#4af626' : '#ff6b6b') + '">' + acc + '%</b>' +
+                (passed ? '<br><br>🎯 Цель 90% достигнута!' : (wasStopped ? '<br><br>🔄 Нажмите «Повторить» для новой попытки' : '<br><br>📈 Повторите для улучшения результата')) +
+                '</p>' +
+                '<button id="btn-restart" style="background:linear-gradient(135deg, rgba(74, 246, 38, 0.95), rgba(0, 189, 86, 0.95));color:#0b0f19;font-size:20px;width:100%;padding:18px;border:none;border-radius:16px;font-weight:900;cursor:pointer;box-shadow:0 8px 0 rgba(0, 120, 50, 0.8),0 20px 40px rgba(74, 246, 38, 0.4);letter-spacing:1px">' +
+                '🔄 ПОВТОРИТЬ ТЕСТ' +
+                '</button>';
+            
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                ui.overlay.style.display = 'none';
+                startGame();
+            });
+        }
+
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>

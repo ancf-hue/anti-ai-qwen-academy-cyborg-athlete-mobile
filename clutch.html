@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: Клатч-симулятор</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2744 50%, #0d1536 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            padding: 15px;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(255, 42, 95, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(251, 191, 36, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        #game-logo {
+            width: 64px; height: 64px;
+            margin: 15px 0 12px;
+            position: relative;
+            z-index: 2;
+            filter: drop-shadow(0 0 15px rgba(251, 191, 36, 0.6));
+        }
+        
+        #ui-layer {
+            display: flex; justify-content: space-between;
+            width: 100%; max-width: 450px;
+            font-size: 14px; font-weight: bold; text-transform: uppercase;
+            margin-bottom: 10px; padding: 0 5px;
+            position: relative; z-index: 1;
+        }
+        .metric { color: #fbbf24; text-shadow: 0 0 10px rgba(251, 191, 36, 0.5); }
+        
+        #scenario-zone {
+            width: 100%; max-width: 450px;
+            min-height: 280px;
+            border: 2px solid rgba(251, 191, 36, 0.4);
+            border-radius: 20px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            position: relative; 
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            margin-bottom: 15px; 
+            overflow: hidden;
+            box-shadow: 
+                0 8px 32px 0 rgba(0, 0, 0, 0.37),
+                inset 0 0 30px rgba(251, 191, 36, 0.15),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            z-index: 1;
+            padding: 25px;
+        }
+        
+        #scenario-icon {
+            font-size: 72px;
+            margin-bottom: 15px;
+            filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.6));
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+        }
+        
+        #scenario-title {
+            font-size: 20px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 12px;
+            color: #fbbf24;
+            text-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        #scenario-desc {
+            font-size: 15px;
+            line-height: 1.6;
+            text-align: center;
+            color: #e2e8f0;
+            margin-bottom: 15px;
+        }
+        
+        #scenario-context {
+            font-size: 13px;
+            color: #94a3b8;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        #timer-container {
+            width: 100%; max-width: 450px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+        
+        #timer-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            width: 100%;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+        }
+        
+        #timer-bar.urgent {
+            background: linear-gradient(90deg, #ff2a5f, #dc2626);
+            box-shadow: 0 0 30px rgba(255, 42, 95, 0.8);
+            animation: urgent-pulse 0.3s ease-in-out infinite;
+        }
+        
+        @keyframes urgent-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        #choices-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%; max-width: 450px;
+            margin-bottom: 15px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .choice-btn {
+            padding: 18px 20px;
+            font-size: 15px;
+            font-weight: 700;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            letter-spacing: 0.5px;
+        }
+        
+        .choice-a {
+            background: linear-gradient(135deg, rgba(255, 42, 95, 0.85), rgba(179, 0, 45, 0.9));
+            border: 2px solid rgba(255, 100, 150, 0.6);
+            color: #fff;
+            box-shadow: 
+                0 6px 0 rgba(139, 0, 45, 0.8),
+                0 12px 25px rgba(255, 42, 95, 0.4),
+                inset 0 2px 8px rgba(255, 255, 255, 0.3);
+        }
+        .choice-a:active:not(:disabled) {
+            transform: translateY(6px);
+            box-shadow: 
+                0 0 0 rgba(139, 0, 45, 0.8),
+                0 6px 15px rgba(255, 42, 95, 0.4),
+                inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .choice-a.correct {
+            background: linear-gradient(135deg, rgba(0, 189, 86, 0.95), rgba(0, 112, 50, 0.95));
+            border-color: rgba(38, 230, 123, 0.9);
+            box-shadow: 0 0 40px rgba(0, 189, 86, 0.8);
+        }
+        .choice-a.wrong {
+            background: linear-gradient(135deg, rgba(100, 116, 139, 0.9), rgba(71, 85, 105, 0.9));
+            opacity: 0.6;
+        }
+        
+        .choice-b {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.85), rgba(14, 165, 233, 0.9));
+            border: 2px solid rgba(103, 232, 249, 0.6);
+            color: #fff;
+            box-shadow: 
+                0 6px 0 rgba(3, 105, 161, 0.8),
+                0 12px 25px rgba(56, 189, 248, 0.4),
+                inset 0 2px 8px rgba(255, 255, 255, 0.3);
+        }
+        .choice-b:active:not(:disabled) {
+            transform: translateY(6px);
+            box-shadow: 
+                0 0 0 rgba(3, 105, 161, 0.8),
+                0 6px 15px rgba(56, 189, 248, 0.4),
+                inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .choice-b.correct {
+            background: linear-gradient(135deg, rgba(0, 189, 86, 0.95), rgba(0, 112, 50, 0.95));
+            border-color: rgba(38, 230, 123, 0.9);
+            box-shadow: 0 0 40px rgba(0, 189, 86, 0.8);
+        }
+        .choice-b.wrong {
+            background: linear-gradient(135deg, rgba(100, 116, 139, 0.9), rgba(71, 85, 105, 0.9));
+            opacity: 0.6;
+        }
+        
+        .choice-c {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(126, 34, 206, 0.9));
+            border: 2px solid rgba(192, 132, 252, 0.6);
+            color: #fff;
+            box-shadow: 
+                0 6px 0 rgba(107, 33, 168, 0.8),
+                0 12px 25px rgba(168, 85, 247, 0.4),
+                inset 0 2px 8px rgba(255, 255, 255, 0.3);
+        }
+        .choice-c:active:not(:disabled) {
+            transform: translateY(6px);
+            box-shadow: 
+                0 0 0 rgba(107, 33, 168, 0.8),
+                0 6px 15px rgba(168, 85, 247, 0.4),
+                inset 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        .choice-c.correct {
+            background: linear-gradient(135deg, rgba(0, 189, 86, 0.95), rgba(0, 112, 50, 0.95));
+            border-color: rgba(38, 230, 123, 0.9);
+            box-shadow: 0 0 40px rgba(0, 189, 86, 0.8);
+        }
+        .choice-c.wrong {
+            background: linear-gradient(135deg, rgba(100, 116, 139, 0.9), rgba(71, 85, 105, 0.9));
+            opacity: 0.6;
+        }
+        
+        .choice-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
+        
+        .choice-letter {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            text-align: center;
+            line-height: 28px;
+            margin-right: 12px;
+            font-weight: 900;
+            font-size: 14px;
+        }
+        
+        #status-text {
+            font-size: 14px;
+            text-align: center;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            min-height: 20px;
+        }
+        #status-text.waiting { color: #fbbf24; }
+        #status-text.correct { color: #4af626; text-shadow: 0 0 10px rgba(74, 246, 38, 0.6); }
+        #status-text.wrong { color: #ff2a5f; text-shadow: 0 0 10px rgba(255, 42, 95, 0.6); }
+        #status-text.timeout { color: #f59e0b; }
+        
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 39, 0.98);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            align-items: center; justify-content: center;
+            z-index: 99999; padding: 20px;
+        }
+        .menu-box {
+            background: rgba(22, 31, 51, 0.7);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            padding: 32px 28px; border-radius: 24px;
+            border: 2px solid rgba(251, 191, 36, 0.4);
+            max-width: 450px; width: 100%;
+            text-align: center;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+                0 0 60px rgba(251, 191, 36, 0.2);
+        }
+        
+        .start-logo {
+            width: 90px; height: 90px;
+            margin: 0 auto 20px;
+            display: block;
+            filter: drop-shadow(0 0 25px rgba(251, 191, 36, 0.7));
+        }
+        
+        .menu-box h1 { 
+            margin-bottom: 16px; 
+            font-size: 28px; 
+            color: #fbbf24;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+        }
+        .menu-box p { margin-bottom: 20px; color: #94a3b8; line-height: 1.6; font-size: 14px; }
+        .menu-box .highlight { color: #fff; font-weight: bold; }
+        .menu-box .warning { color: #fbbf24; font-weight: bold; }
+        
+        #btn-start { 
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.95), rgba(245, 158, 11, 0.95)); 
+            color: #0b0f19; font-size: 19px; width: 100%; padding: 18px; 
+            border-radius: 16px; border: none; font-weight: 900; cursor: pointer;
+            box-shadow: 
+                0 8px 0 rgba(180, 120, 0, 0.8),
+                0 20px 40px rgba(251, 191, 36, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+        #btn-start:active {
+            transform: translateY(8px);
+            box-shadow: 
+                0 0 0 rgba(180, 120, 0, 0.8),
+                0 10px 20px rgba(251, 191, 36, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ (как в Уроке 1) */
+        #donation-footer {
+            width: 100%; max-width: 450px; 
+            background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 16px;
+            padding: 15px; text-align: center; margin-top: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+        #donation-footer h3 { font-size: 15px; margin-bottom: 8px; color: #38bdf8; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin-bottom: 12px; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); 
+            border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px;
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .phone-num { font-family: monospace; font-size: 15px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .catalog-link { display: inline-block; font-size: 12px; color: #10b981; text-decoration: none; font-weight: bold; margin-top: 5px; }
+        .main-link {
+            display: inline-block;
+            font-size: 16px;
+            color: #4af626;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover {
+            background: rgba(74, 246, 38, 0.2);
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #fbbf24; color: #0b0f19; border-color: #fbbf24;
+            box-shadow: 0 0 15px rgba(251,191,36,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <div id="start-overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" class="start-logo">
+            <h1 data-i18n="title">⚡ КЛАТЧ-СИМУЛЯТОР</h1>
+            <p data-i18n="desc"><strong>Тренировка:</strong> <span class="highlight">Принятие решений</span><br>
+               <span class="warning">⏱️ 2 секунды на выбор</span><br><br>
+               🔊 Звуковой сигнал<br>
+               📋 Ситуация из PUBG Mobile<br>
+               🎯 Выбери правильную тактику<br><br>
+               ✅ <b>15 ситуаций</b><br>
+               🎯 Цель: <b>≥80% точности</b></p>
+            <button id="btn-start" data-i18n="start">▶ НАЧАТЬ ТРЕНИРОВКУ</button>
+        </div>
+    </div>
+
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <div id="ui-layer">
+        <div><span data-i18n="scenario">Ситуация</span>: <span id="progress" class="metric">0/15</span></div>
+        <div><span data-i18n="accuracy">Точность</span>: <span id="accuracy" class="metric">100%</span></div>
+    </div>
+
+    <div id="timer-container">
+        <div id="timer-bar"></div>
+    </div>
+
+    <div id="status-text" class="waiting" data-i18n="waiting">✓ Ожидайте сигнал...</div>
+
+    <div id="scenario-zone">
+        <div id="scenario-icon">🎯</div>
+        <div id="scenario-title" data-i18n="loading">Загрузка...</div>
+        <div id="scenario-desc" data-i18n="desc_placeholder">Описание ситуации</div>
+        <div id="scenario-context" data-i18n="context_placeholder">Контекст</div>
+    </div>
+
+    <div id="choices-container">
+        <button class="choice-btn choice-a" id="choice-a" disabled>
+            <span class="choice-letter">A</span>
+            <span id="text-a" data-i18n="option_a">Вариант A</span>
+        </button>
+        <button class="choice-btn choice-b" id="choice-b" disabled>
+            <span class="choice-letter">B</span>
+            <span id="text-b" data-i18n="option_b">Вариант B</span>
+        </button>
+        <button class="choice-btn choice-c" id="choice-c" disabled>
+            <span class="choice-letter">C</span>
+            <span id="text-c" data-i18n="option_c">Вариант C</span>
+        </button>
+    </div>
+
+    <!-- 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ (как в Уроке 1) -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-box">
+            <div style="text-align: left;">
+                <div style="font-size:10px; color:#64748b; margin-bottom:3px;" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+                <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            </div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p style="font-size:10px; color:#4af626;" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p style="font-size:12px; color:#f472b6; margin:8px 0;" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p style="font-size:10px; color:#64748b; margin-top:5px;" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: '⚡ КЛАТЧ-СИМУЛЯТОР',
+                desc: '<strong>Тренировка:</strong> <span class="highlight">Принятие решений</span><br><span class="warning">⏱️ 2 секунды на выбор</span><br><br>🔊 Звуковой сигнал<br>📋 Ситуация из PUBG Mobile<br>🎯 Выбери правильную тактику<br><br>✅ <b>15 ситуаций</b><br>🎯 Цель: <b>≥80% точности</b>',
+                start: '▶ НАЧАТЬ ТРЕНИРОВКУ',
+                scenario: 'Ситуация', accuracy: 'Точность', waiting: '✓ Ожидайте сигнал...',
+                loading: 'Загрузка...', desc_placeholder: 'Описание ситуации', context_placeholder: 'Контекст',
+                option_a: 'Вариант A', option_b: 'Вариант B', option_c: 'Вариант C',
+                choose: '⚡ БЫСТРО ВЫБИРАЙ!', next: '⏳ Следующая...',
+                correct: '✅ ПРАВИЛЬНО! ', wrong: '❌ ОШИБКА! ', timeout: '⏱️ ВРЕМЯ! ',
+                passed: '🎯 ТРЕНИРОВКА ПРОЙДЕНА!', failed_practice: '📈 Продолжай тренироваться!', failed_ready: '✅ Ты готов к клатчам в реальных матчах!',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                retry: '🔄 ПОВТОРИТЬ СИМУЛЯТОР'
+            },
+            en: {
+                title: '⚡ CLUTCH SIMULATOR',
+                desc: '<strong>Training:</strong> <span class="highlight">Decision making</span><br><span class="warning">⏱️ 2 seconds to choose</span><br><br>🔊 Audio signal<br>📋 PUBG Mobile scenario<br>🎯 Choose correct tactic<br><br>✅ <b>15 scenarios</b><br>🎯 Goal: <b>≥80% accuracy</b>',
+                start: '▶ START TRAINING',
+                scenario: 'Scenario', accuracy: 'Accuracy', waiting: '✓ Wait for signal...',
+                loading: 'Loading...', desc_placeholder: 'Scenario description', context_placeholder: 'Context',
+                option_a: 'Option A', option_b: 'Option B', option_c: 'Option C',
+                choose: '⚡ CHOOSE FAST!', next: '⏳ Next...',
+                correct: '✅ CORRECT! ', wrong: '❌ WRONG! ', timeout: '⏱️ TIMEOUT! ',
+                passed: '🎯 TRAINING PASSED!', failed_practice: '📈 Keep practicing!', failed_ready: '✅ Ready for real clutch situations!',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                retry: '🔄 RETRY SIMULATOR'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+        }
+
+        // === ДАННЫЕ СИТУАЦИЙ ===
+        const scenarios = [
+            { icon: '🔥', title: {ru:'1v3 в финале',en:'1v3 Finale'}, desc: {ru:'Остался один против сквада из 3 человек. Они в здании в 20 метрах.',en:'Alone vs 3 enemies in a building 20m away.'}, context: {ru:'HP: 75% | Броня: 2 уровень | Оружие: M416 + карабин',en:'HP: 75% | Armor: L2 | Weapon: M416 + carbine'}, choices: [{ text: {ru:'Агрессивно зайти в здание с гранатой',en:'Aggressive entry with grenade'}, correct: true }, { text: {ru:'Занять позицию снаружи и ждать',en:'Wait outside'}, correct: false }, { text: {ru:'Отступить и лечь в траву',en:'Retreat to grass'}, correct: false }], explanation: {ru:'Агрессия с гранатой даст преимущество в замкнутом пространстве',en:'Aggression with grenade gives advantage in close quarters'} },
+            { icon: '⭕', title: {ru:'Финальная зона',en:'Final Zone'}, desc: {ru:'Круг закрывается за 10 сек. Ты в 100м от безопасной зоны.',en:'Zone closes in 10s. You are 100m from safe zone.'}, context: {ru:'HP: 100% | Транспорт: Нет | В зоне: 2 врага',en:'HP: 100% | Vehicle: None | Enemies in zone: 2'}, choices: [{ text: {ru:'Бежать по открытому полю',en:'Run across open field'}, correct: false }, { text: {ru:'Использовать дымовую гранату',en:'Use smoke grenade'}, correct: true }, { text: {ru:'Остаться и принять бой',en:'Stay and fight'}, correct: false }], explanation: {ru:'Дымовая граната скроет передвижение и спасёт от урона',en:'Smoke grenade hides movement and saves from damage'} },
+            { icon: '🎧', title: {ru:'Шаги сзади',en:'Footsteps Behind'}, desc: {ru:'Слышишь шаги за спиной. Враг близко, но ты его не видишь.',en:'You hear footsteps behind. Enemy is close but invisible.'}, context: {ru:'HP: 60% | Укрытие: Дерево | Оружие: Дробовик',en:'HP: 60% | Cover: Tree | Weapon: Shotgun'}, choices: [{ text: {ru:'Резко развернуться и стрелять',en:'Turn and shoot suddenly'}, correct: true }, { text: {ru:'Лечь и притвориться мёртвым',en:'Lie down and play dead'}, correct: false }, { text: {ru:'Побежать вперёд',en:'Run forward'}, correct: false }], explanation: {ru:'Внезапная атака с дробовиком даст преимущество в ближнем бою',en:'Sudden shotgun attack gives advantage in close combat'} },
+            { icon: '🚗', title: {ru:'Третий-party',en:'Third-Party'}, desc: {ru:'Ты слушаешь перестрелку двух сквадов. Появляется третий.',en:'You hear two squads fighting. A third appears.'}, context: {ru:'HP: 85% | Позиция: Холм | Наблюдение: Полное',en:'HP: 85% | Position: Hill | Vision: Full'}, choices: [{ text: {ru:'Спуститься и атаковать ослабленных',en:'Descend and attack weakened'}, correct: true }, { text: {ru:'Остаться на холме и наблюдать',en:'Stay on hill and watch'}, correct: false }, { text: {ru:'Уехать на машине',en:'Drive away'}, correct: false }], explanation: {ru:'Атака после боя — идеальный момент, враги ослаблены',en:'Attack after battle is ideal, enemies are weakened'} },
+            { icon: '💊', title: {ru:'Низкий HP',en:'Low HP'}, desc: {ru:'У тебя 15% здоровья. Враг в 30 метрах за камнем.',en:'You have 15% HP. Enemy 30m behind rock.'}, context: {ru:'HP: 15% | Аптечки: 2 шт | Враг: Не видит тебя',en:'HP: 15% | Medkits: 2 | Enemy: Doesn\'t see you'}, choices: [{ text: {ru:'Сразу атаковать',en:'Attack immediately'}, correct: false }, { text: {ru:'Отступить и вылечиться',en:'Retreat and heal'}, correct: true }, { text: {ru:'Бросить гранату',en:'Throw grenade'}, correct: false }], explanation: {ru:'С низким HP любой выстрел смертелен — сначала лечение',en:'With low HP any shot is lethal — heal first'} },
+            { icon: '🎯', title: {ru:'Снайпер на крыше',en:'Rooftop Sniper'}, desc: {ru:'Враг с AWM на крыше. Ты в открытой местности.',en:'Enemy with AWM on roof. You in open area.'}, context: {ru:'HP: 100% | Броня: 3 уровень | Дистанция: 150м',en:'HP: 100% | Armor: L3 | Distance: 150m'}, choices: [{ text: {ru:'Бежать зигзагом к укрытию',en:'Zigzag to cover'}, correct: true }, { text: {ru:'Лечь и ползти',en:'Lie down and crawl'}, correct: false }, { text: {ru:'Отстреливаться из автомата',en:'Shoot back with rifle'}, correct: false }], explanation: {ru:'Зигзаг усложнит снайперу прицеливание',en:'Zigzag makes sniping harder for enemy'} },
+            { icon: '🪂', title: {ru:'Десант врагов',en:'Enemy Drop'}, desc: {ru:'Видишь парашюты 4 врагов рядом с тобой.',en:'You see 4 enemy parachutes nearby.'}, context: {ru:'HP: 100% | Оружие: Пистолет | Лут: Минимум',en:'HP: 100% | Weapon: Pistol | Loot: Minimal'}, choices: [{ text: {ru:'Принять бой',en:'Engage in combat'}, correct: false }, { text: {ru:'Спрятаться в ближайшем доме',en:'Hide in nearest house'}, correct: true }, { text: {ru:'Убежать в поле',en:'Run to field'}, correct: false }], explanation: {ru:'С пистолетом против 4 — только укрытие и ожидание',en:'With pistol vs 4 — only cover and wait'} },
+            { icon: '🔫', title: {ru:'Перестрелка в здании',en:'Building Fight'}, desc: {ru:'Враг на втором этаже. Ты на первом. Лестница между вами.',en:'Enemy on 2nd floor. You on 1st. Stairs between.'}, context: {ru:'HP: 70% | Гранаты: 1 шт | Оружие: SMG',en:'HP: 70% | Grenades: 1 | Weapon: SMG'}, choices: [{ text: {ru:'Подняться по лестнице',en:'Go up stairs'}, correct: false }, { text: {ru:'Бросить гранату наверх',en:'Throw grenade upstairs'}, correct: true }, { text: {ru:'Выстрелить в потолок',en:'Shoot ceiling'}, correct: false }], explanation: {ru:'Граната вынудит врага двигаться или нанесёт урон',en:'Grenade forces enemy to move or takes damage'} },
+            { icon: '🌫️', title: {ru:'Туман войны',en:'Fog of War'}, desc: {ru:'Плотный туман. Видимость 20 метров. Слышишь машину.',en:'Dense fog. 20m visibility. You hear vehicle.'}, context: {ru:'HP: 90% | Оружие: Винтовка | Позиция: Дорога',en:'HP: 90% | Weapon: Rifle | Position: Road'}, choices: [{ text: {ru:'Стрелять на звук',en:'Shoot at sound'}, correct: false }, { text: {ru:'Сойти с дороги в укрытие',en:'Leave road to cover'}, correct: true }, { text: {ru:'Остановить машину',en:'Stop the vehicle'}, correct: false }], explanation: {ru:'В тумане открытая позиция на дороге смертельно опасна',en:'In fog, open road position is deadly'} },
+            { icon: '⚡', title: {ru:'Раш сквада',en:'Squad Rush'}, desc: {ru:'Полный сквад бежит на твою позицию. До них 50 метров.',en:'Full squad rushing your position. 50m away.'}, context: {ru:'HP: 80% | Пулемёт: Да | Укрытие: Камень',en:'HP: 80% | LMG: Yes | Cover: Rock'}, choices: [{ text: {ru:'Отступить',en:'Retreat'}, correct: false }, { text: {ru:'Открыть заградительный огонь',en:'Open suppressive fire'}, correct: true }, { text: {ru:'Спрятаться',en:'Hide'}, correct: false }], explanation: {ru:'Пулемёт с укрытием — идеальная позиция для обороны',en:'LMG with cover is ideal defensive position'} },
+            { icon: '🎒', title: {ru:'Лут под огнём',en:'Loot Under Fire'}, desc: {ru:'Убил врага. Его лут ценный, но рядом другие враги.',en:'Killed enemy. Valuable loot, but other enemies nearby.'}, context: {ru:'HP: 65% | Лут: 3 уровень | Время: 5 сек',en:'HP: 65% | Loot: L3 | Time: 5s'}, choices: [{ text: {ru:'Быстро забрать лучшее',en:'Quickly grab best items'}, correct: true }, { text: {ru:'Игнорировать лут',en:'Ignore loot'}, correct: false }, { text: {ru:'Тратить 15 сек на полный лут',en:'Spend 15s on full loot'}, correct: false }], explanation: {ru:'5 секунд на лучший лут — оправданный риск',en:'5 seconds for best loot is justified risk'} },
+            { icon: '🏃', title: {ru:'Погоня',en:'Chase'}, desc: {ru:'Враг убегает. У него мало HP. У тебя автомат.',en:'Enemy fleeing. Low HP. You have rifle.'}, context: {ru:'HP: 95% | Дистанция: 40м | Враг HP: ~20%',en:'HP: 95% | Distance: 40m | Enemy HP: ~20%'}, choices: [{ text: {ru:'Преследовать и добить',en:'Pursue and finish'}, correct: true }, { text: {ru:'Оставить его',en:'Leave him'}, correct: false }, { text: {ru:'Ждать пока он вылечится',en:'Wait for him to heal'}, correct: false }], explanation: {ru:'Лёгкая добыча — нужно добить для преимущества',en:'Easy prey — finish for advantage'} },
+            { icon: '💣', title: {ru:'Граната в ногах',en:'Grenade at Feet'}, desc: {ru:'Враг бросил гранату. До взрыва 2 секунды.',en:'Enemy threw grenade. 2 seconds to explosion.'}, context: {ru:'HP: 100% | Укрытие: 15м | Время: 2 сек',en:'HP: 100% | Cover: 15m | Time: 2s'}, choices: [{ text: {ru:'Лечь на землю',en:'Lie on ground'}, correct: false }, { text: {ru:'Отбежать за укрытие',en:'Run to cover'}, correct: true }, { text: {ru:'Бросить обратно',en:'Throw back'}, correct: false }], explanation: {ru:'2 секунды хватит чтобы добежать до укрытия',en:'2 seconds enough to reach cover'} },
+            { icon: '🔄', title: {ru:'Ротация зоны',en:'Zone Rotation'}, desc: {ru:'Зона смещается. Ты на краю. Враги в центре.',en:'Zone shifting. You on edge. Enemies in center.'}, context: {ru:'HP: 88% | Транспорт: Мотоцикл | Зона: 30 сек',en:'HP: 88% | Vehicle: Motorcycle | Zone: 30s'}, choices: [{ text: {ru:'Ехать в центр к врагам',en:'Drive to center to enemies'}, correct: false }, { text: {ru:'Занять позицию на краю новой зоны',en:'Take position on new zone edge'}, correct: true }, { text: {ru:'Ждать последнего момента',en:'Wait for last moment'}, correct: false }], explanation: {ru:'Позиция на краю даст преимущество при ротации врагов',en:'Edge position gives advantage during enemy rotation'} },
+            { icon: '👥', title: {ru:'Тиммейт сбит',en:'Teammate Down'}, desc: {ru:'Твоего тиммейта сбили. Враг в 20 метрах.',en:'Your teammate down. Enemy 20m away.'}, context: {ru:'HP: 75% | Тиммейт: Down | Враг: Перезаряжается',en:'HP: 75% | Teammate: Down | Enemy: Reloading'}, choices: [{ text: {ru:'Атаковать пока враг перезаряжается',en:'Attack while enemy reloads'}, correct: true }, { text: {ru:'Поднять тиммейта',en:'Revive teammate'}, correct: false }, { text: {ru:'Отступить',en:'Retreat'}, correct: false }], explanation: {ru:'Окно перезарядки — лучший момент для контратаки',en:'Reload window is best moment for counterattack'} }
+        ];
+
+        // === КОНФИГУРАЦИЯ ===
+        const CONFIG = { TOTAL_ROUNDS: 15, TIME_LIMIT: 2000, GOAL_ACCURACY: 80 };
+
+        let state = { currentRound: 0, correctAnswers: 0, isActive: false, timerInterval: null, timeLeft: CONFIG.TIME_LIMIT, canAnswer: false, shuffledScenarios: [] };
+
+        const ui = {
+            overlay: document.getElementById('start-overlay'), btnStart: document.getElementById('btn-start'),
+            progress: document.getElementById('progress'), accuracy: document.getElementById('accuracy'),
+            timerBar: document.getElementById('timer-bar'), statusText: document.getElementById('status-text'),
+            scenarioZone: document.getElementById('scenario-zone'), scenarioIcon: document.getElementById('scenario-icon'),
+            scenarioTitle: document.getElementById('scenario-title'), scenarioDesc: document.getElementById('scenario-desc'),
+            scenarioContext: document.getElementById('scenario-context'), choiceA: document.getElementById('choice-a'),
+            choiceB: document.getElementById('choice-b'), choiceC: document.getElementById('choice-c'),
+            textA: document.getElementById('text-a'), textB: document.getElementById('text-b'),
+            textC: document.getElementById('text-c'), copyBtn: document.getElementById('btn-copy-action'),
+            copyNum: document.getElementById('num-to-copy')
+        };
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playAlertSound() {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.value = 800; o.type = 'sine';
+            g.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            o.start(); o.stop(audioCtx.currentTime + 0.3);
+        }
+        function playCorrectSound() {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.value = 600; o.type = 'sine';
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            o.start(); o.stop(audioCtx.currentTime + 0.2);
+            setTimeout(() => {
+                const o2 = audioCtx.createOscillator(), g2 = audioCtx.createGain();
+                o2.connect(g2); g2.connect(audioCtx.destination);
+                o2.frequency.value = 900;
+                g2.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                g2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                o2.start(); o2.stop(audioCtx.currentTime + 0.3);
+            }, 100);
+        }
+        function playWrongSound() {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.value = 300; o.type = 'sawtooth';
+            g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            o.start(); o.stop(audioCtx.currentTime + 0.4);
+        }
+        function playTimeoutSound() {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.frequency.value = 400; o.type = 'square';
+            g.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            o.start(); o.stop(audioCtx.currentTime + 0.5);
+        }
+
+        ui.copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(ui.copyNum.textContent).then(() => {
+                ui.copyBtn.textContent = '✅ ' + i18n[lang].copy;
+                setTimeout(() => ui.copyBtn.textContent = '📋 ' + i18n[lang].copy, 1800);
+            }).catch(() => {
+                ui.copyBtn.textContent = '❌ Error';
+                setTimeout(() => ui.copyBtn.textContent = '📋 ' + i18n[lang].copy, 1800);
+            });
+        });
+
+        ui.btnStart.addEventListener('click', () => {
+            audioCtx.resume();
+            ui.overlay.style.display = 'none';
+            startGame();
+        });
+
+        ui.choiceA.addEventListener('click', () => makeChoice(0));
+        ui.choiceB.addEventListener('click', () => makeChoice(1));
+        ui.choiceC.addEventListener('click', () => makeChoice(2));
+
+        document.addEventListener('keydown', (e) => {
+            if (!state.canAnswer) return;
+            if (e.key === '1') makeChoice(0);
+            if (e.key === '2') makeChoice(1);
+            if (e.key === '3') makeChoice(2);
+        });
+
+        function startGame() {
+            state.currentRound = 0;
+            state.correctAnswers = 0;
+            state.shuffledScenarios = [...scenarios].sort(() => Math.random() - 0.5).slice(0, CONFIG.TOTAL_ROUNDS);
+            state.isActive = true;
+            updateUI();
+            setTimeout(nextRound, 500);
+        }
+
+        function nextRound() {
+            if (state.currentRound >= CONFIG.TOTAL_ROUNDS) { endGame(); return; }
+            const scenario = state.shuffledScenarios[state.currentRound];
+            showScenario(scenario);
+        }
+
+        function showScenario(scenario) {
+            state.canAnswer = false;
+            state.timeLeft = CONFIG.TIME_LIMIT;
+            playAlertSound();
+            ui.statusText.textContent = '⚡ ' + i18n[lang].choose;
+            ui.statusText.className = 'waiting';
+            ui.timerBar.classList.remove('urgent');
+            ui.timerBar.style.width = '100%';
+            ui.scenarioIcon.textContent = scenario.icon;
+            ui.scenarioTitle.textContent = scenario.title[lang];
+            ui.scenarioDesc.textContent = scenario.desc[lang];
+            ui.scenarioContext.textContent = scenario.context[lang];
+            const choices = scenario.choices.map((c, i) => ({ ...c, originalIndex: i }));
+            choices.sort(() => Math.random() - 0.5);
+            ui.textA.textContent = choices[0].text[lang];
+            ui.textB.textContent = choices[1].text[lang];
+            ui.textC.textContent = choices[2].text[lang];
+            scenario.mappedChoices = choices;
+            ui.choiceA.disabled = false; ui.choiceB.disabled = false; ui.choiceC.disabled = false;
+            ui.choiceA.classList.remove('correct', 'wrong'); ui.choiceB.classList.remove('correct', 'wrong'); ui.choiceC.classList.remove('correct', 'wrong');
+            state.canAnswer = true;
+            startTimer();
+        }
+
+        function startTimer() {
+            const interval = 50;
+            state.timerInterval = setInterval(() => {
+                state.timeLeft -= interval;
+                const percentage = (state.timeLeft / CONFIG.TIME_LIMIT) * 100;
+                ui.timerBar.style.width = percentage + '%';
+                if (state.timeLeft <= 500) ui.timerBar.classList.add('urgent');
+                if (state.timeLeft <= 0) { clearInterval(state.timerInterval); timeout(); }
+            }, interval);
+        }
+
+        function makeChoice(choiceIndex) {
+            if (!state.canAnswer) return;
+            state.canAnswer = false;
+            clearInterval(state.timerInterval);
+            const scenario = state.shuffledScenarios[state.currentRound];
+            const chosenChoice = scenario.mappedChoices[choiceIndex];
+            const isCorrect = chosenChoice.correct;
+            ui.choiceA.disabled = true; ui.choiceB.disabled = true; ui.choiceC.disabled = true;
+            scenario.mappedChoices.forEach((c, idx) => {
+                const btn = [ui.choiceA, ui.choiceB, ui.choiceC][idx];
+                if (c.correct) btn.classList.add('correct');
+                else if (idx === choiceIndex && !isCorrect) btn.classList.add('wrong');
+            });
+            if (isCorrect) {
+                state.correctAnswers++;
+                ui.statusText.textContent = i18n[lang].correct + scenario.explanation[lang];
+                ui.statusText.className = 'correct';
+                playCorrectSound();
+            } else {
+                ui.statusText.textContent = i18n[lang].wrong + scenario.explanation[lang];
+                ui.statusText.className = 'wrong';
+                playWrongSound();
+            }
+            updateUI();
+            state.currentRound++;
+            setTimeout(nextRound, 2500);
+        }
+
+        function timeout() {
+            state.canAnswer = false;
+            ui.choiceA.disabled = true; ui.choiceB.disabled = true; ui.choiceC.disabled = true;
+            const scenario = state.shuffledScenarios[state.currentRound];
+            scenario.mappedChoices.forEach((c, idx) => { if (c.correct) [ui.choiceA, ui.choiceB, ui.choiceC][idx].classList.add('correct'); });
+            ui.statusText.textContent = i18n[lang].timeout + ' ' + scenario.explanation[lang];
+            ui.statusText.className = 'timeout';
+            playTimeoutSound();
+            updateUI();
+            state.currentRound++;
+            setTimeout(nextRound, 3000);
+        }
+
+        function updateUI() {
+            ui.progress.textContent = `${state.currentRound}/${CONFIG.TOTAL_ROUNDS}`;
+            const acc = state.currentRound > 0 ? Math.round((state.correctAnswers / state.currentRound) * 100) : 100;
+            ui.accuracy.textContent = acc + '%';
+            ui.accuracy.style.color = acc >= CONFIG.GOAL_ACCURACY ? '#4af626' : '#ff6b6b';
+        }
+
+        function endGame() {
+            state.isActive = false;
+            const accuracy = Math.round((state.correctAnswers / CONFIG.TOTAL_ROUNDS) * 100);
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА: Сохранение прогресса ===
+            if (accuracy >= CONFIG.GOAL_ACCURACY) {
+                localStorage.setItem('lesson_2_passed', 'true');
+            } else {
+                localStorage.removeItem('lesson_2_passed');
+            }
+            // === КОНЕЦ ПАТЧА ===
+            
+            const passed = accuracy >= CONFIG.GOAL_ACCURACY;
+            ui.scenarioZone.style.display = 'none';
+            document.getElementById('choices-container').style.display = 'none';
+            document.getElementById('timer-container').style.display = 'none';
+            ui.statusText.style.display = 'none';
+            document.getElementById('ui-layer').style.display = 'none';
+            document.getElementById('game-logo').style.display = 'none';
+            ui.overlay.style.display = 'flex';
+            ui.overlay.querySelector('.menu-box').innerHTML = `
+                <img src="favicon.ico" alt="Logo" class="start-logo">
+                <h1 style="color: ${passed ? '#4af626' : '#ff6b6b'}">
+                    ${passed ? '🎯 ' + i18n[lang].passed : '📚 ' + (lang==='ru'?'НУЖНА ПРАКТИКА':'NEED PRACTICE')}
+                </h1>
+                <p style="font-size: 16px; margin-bottom: 20px;">
+                    ${lang==='ru'?'Правильных ответов:':'Correct answers:'} <b style="color: #fff; font-size: 20px;">${state.correctAnswers} из ${CONFIG.TOTAL_ROUNDS}</b><br><br>
+                    ${lang==='ru'?'Точность:':'Accuracy:'} <b style="font-size: 24px; color: ${passed ? '#4af626' : '#ff6b6b'};">${accuracy}%</b>
+                </p>
+                <p style="margin-bottom: 25px; line-height: 1.6;">
+                    ${passed ? 
+                        (lang==='ru' ? '✅ Отличный результат! Твои инстинкты киборга на высоте!<br>Ты готов к клатчам в реальных матчах!' : '✅ Excellent! Your cyborg instincts are sharp!<br>Ready for real clutch situations!') : 
+                        (lang==='ru' ? '📈 Продолжай тренироваться! Скорость принятия решений требует практики.<br>Повтори симулятор для улучшения результата.' : '📈 Keep training! Decision speed requires practice.<br>Retry to improve.')}
+                </p>
+                <button id="btn-restart" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.95), rgba(245, 158, 11, 0.95)); color: #0b0f19; font-size: 19px; width: 100%; padding: 18px; border-radius: 16px; border: none; font-weight: 900; cursor: pointer; box-shadow: 0 8px 0 rgba(180, 120, 0, 0.8), 0 20px 40px rgba(251, 191, 36, 0.4); letter-spacing: 1px;">
+                    ${i18n[lang].retry}
+                </button>
+            `;
+            document.getElementById('btn-restart').addEventListener('click', () => { location.reload(); });
+        }
+
+        // Инициализация языка
+        document.addEventListener('DOMContentLoaded', () => setLang(lang));
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>

@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: Флик</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2744 50%, #0d1536 100%);
+            color: #ffffff; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; overflow: hidden; touch-action: none;
+            position: relative;
+        }
+        
+        /* 🔵 СИНИЙ СТЕКЛЯННЫЙ ФОН (как в Уроке 1) */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(74, 246, 38, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 20%, rgba(255, 42, 95, 0.1) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+        
+        #game-logo {
+            width: 60px; height: 60px; margin: 15px 0 10px;
+            filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.6));
+            position: relative; z-index: 2;
+        }
+        
+        #stats-panel {
+            width: 95%; max-width: 400px; 
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative; z-index: 2;
+        }
+        .stats-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 18px; font-weight: bold; color: #ef4444; }
+        .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        
+        #session-progress-container {
+            width: 100%; height: 8px; background: rgba(255,255,255,0.1);
+            border-radius: 4px; overflow: hidden;
+        }
+        #session-progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #ef4444, #dc2626);
+            transition: width 0.3s ease;
+        }
+
+        #game-area {
+            width: 95%; max-width: 400px; flex: 1; position: relative;
+            background: rgba(0, 0, 0, 0.4); border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5); margin-bottom: 12px;
+            position: relative; z-index: 2;
+        }
+        canvas { width: 100%; height: 100%; display: block; cursor: none; }
+
+        #fire-btn-container {
+            width: 95%; max-width: 400px; margin-bottom: 12px;
+            position: relative; z-index: 2;
+        }
+        #fire-btn {
+            width: 100%; height: 70px;
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(179, 0, 45, 0.9));
+            border: 2px solid rgba(255, 100, 150, 0.6);
+            border-radius: 16px; color: white;
+            font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px;
+            cursor: pointer; box-shadow: 0 6px 0 rgba(100, 0, 30, 0.8), 0 15px 30px rgba(239, 68, 68, 0.4);
+            transition: all 0.1s; -webkit-tap-highlight-color: transparent;
+        }
+        #fire-btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 rgba(100, 0, 30, 0.8), 0 5px 15px rgba(239, 68, 68, 0.4);
+        }
+
+        #stage-notification {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #ef4444;
+            padding: 15px 30px; border-radius: 12px; text-align: center;
+            z-index: 10; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        #stage-notification.show { opacity: 1; }
+        #stage-notification h2 { color: #ef4444; margin: 0; font-size: 24px; }
+        #stage-notification p { color: #fff; margin: 5px 0 0; font-size: 14px; }
+
+        /* 🔵 СТАРТОВЫЙ ЭКРАН — СИНИЙ СТЕКЛЯННЫЙ (как в Уроке 1) */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .menu-box {
+            background: rgba(22, 31, 51, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 32px 28px; border-radius: 24px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        .menu-box h1 { 
+            margin-bottom: 18px; font-size: 28px; color: #ef4444;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        }
+        .menu-box p { margin-bottom: 26px; color: #94a3b8; line-height: 1.6; font-size: 15px; }
+        .menu-box .highlight { color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .btn-action {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(179, 0, 45, 0.95));
+            color: #fff; font-size: 19px; width: 100%; padding: 18px;
+            border-radius: 16px; border: none; font-weight: 900; cursor: pointer;
+            box-shadow:
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 20px 40px rgba(239, 68, 68, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+        .btn-action:active {
+            transform: translateY(8px);
+            box-shadow:
+                0 0 0 rgba(139, 0, 45, 0.8),
+                0 10px 20px rgba(239, 68, 68, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .btn-action:hover {
+            filter: brightness(1.15);
+            box-shadow:
+                0 8px 0 rgba(139, 0, 45, 0.8),
+                0 20px 50px rgba(239, 68, 68, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .result-score { font-size: 32px; color: #4af626; font-weight: 900; margin: 15px 0; }
+
+        /* 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ (как в Уроке 1) */
+        #donation-footer {
+            width: 100%; max-width: 400px;
+            background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 16px;
+            padding: 15px; text-align: center; margin-bottom: 15px;
+            position: relative; z-index: 2;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        #donation-footer h3 { font-size: 16px; margin-bottom: 5px; color: #38bdf8; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin: 5px 0; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px; margin: 10px 0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .phone-num { font-family: monospace; font-size: 16px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .main-link {
+            display: inline-block;
+            font-size: 16px;
+            color: #4af626;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover {
+            background: rgba(74, 246, 38, 0.2);
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+            position: relative; z-index: 2;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #ef4444; color: #0b0f19; border-color: #ef4444;
+            box-shadow: 0 0 15px rgba(239,68,68,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <!-- СТАРТОВЫЙ ЭКРАН — 🔵 СИНИЙ СТЕКЛЯННЫЙ -->
+    <div id="start-overlay" class="overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:90px; height:90px; margin:0 auto 24px; display:block; filter:drop-shadow(0 0 25px rgba(239,68,68,0.7));">
+            <h1 data-i18n="title">🔥 КИБОРГ-ФЛИК</h1>
+            <p data-i18n="desc">
+                <strong>Урок 7:</strong> Переключение целей.<br><br>
+                 🔴 <b>Красная цель:</b> Враг — Жми ОГОНЬ!<br>
+                🟢 <b>Зеленая цель:</b> Свой — НЕ СТРЕЛЯЙ!<br><br>
+                👆 Води пальцем по экрану, чтобы навести прицел.<br>
+                🔥 Жми кнопку внизу, чтобы выстрелить.<br>
+                <i data-i18n="goal">Протокол: <span class="highlight">5 Этапов</span>. Скорость растет.</i>
+            </p>
+            <button class="btn-action" onclick="startGame()" data-i18n="start">▶ ЗАПУСТИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ФИНИША -->
+    <div id="finish-overlay" class="overlay" style="display: none;">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:90px; height:90px; margin:0 auto 24px; display:block; filter:drop-shadow(0 0 25px rgba(239,68,68,0.7));">
+            <h1 data-i18n="finish">🏁 ПРОТОКОЛ ЗАВЕРШЕН</h1>
+            <div class="result-score" id="final-score">0%</div>
+            <p id="final-stats">Выстрелов по своим: 0</p>
+            <p id="final-verdict" style="color: #ef4444; font-weight: bold; margin-bottom: 15px;"></p>
+            <button class="btn-action" onclick="location.reload()" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#0b0f19;" data-i18n="retry">🔄 ПОВТОРИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <!-- СТАТИСТИКА + ПРОГРЕСС -->
+    <div id="stats-panel">
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-val" id="stage-val">Этап 1</div>
+                <div class="stat-lbl" data-i18n="stage">Уровень</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="score-val">100%</div>
+                <div class="stat-lbl" data-i18n="efficiency">Эффективность</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="target-val">0 / 20</div>
+                <div class="stat-lbl" data-i18n="targets">Цели</div>
+            </div>
+        </div>
+        <div id="session-progress-container">
+            <div id="session-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ИГРОВАЯ ЗОНА -->
+    <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+        <div id="stage-notification">
+            <h2 id="notif-title">ЭТАП 2</h2>
+            <p id="notif-desc">Скорость увеличена</p>
+        </div>
+    </div>
+
+    <!-- КНОПКА ОГОНЬ -->
+    <div id="fire-btn-container">
+        <button id="fire-btn" data-i18n="fire">🔥 ОГОНЬ</button>
+    </div>
+
+    <!-- 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-box">
+            <div style="text-align: left;">
+                <div style="font-size:10px; color:#64748b; margin-bottom:3px;" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+                <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            </div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p style="font-size:10px; color:#4af626;" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p style="font-size:12px; color:#f472b6; margin:8px 0;" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p style="font-size:10px; color:#64748b; margin-top:5px;" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: '🔥 КИБОРГ-ФЛИК',
+                desc: '<strong>Урок 7:</strong> Переключение целей.<br><br>🔴 <b>Красная цель:</b> Враг — Жми ОГОНЬ!<br>🟢 <b>Зеленая цель:</b> Свой — НЕ СТРЕЛЯЙ!<br><br>👆 Води пальцем по экрану, чтобы навести прицел.<br>🔥 Жми кнопку внизу, чтобы выстрелить.<br><i>Протокол: <span class="highlight">5 Этапов</span>. Скорость растет.</i>',
+                start: '▶ ЗАПУСТИТЬ ПРОТОКОЛ',
+                goal: 'Протокол: <span class="highlight">5 Этапов</span>. Скорость растет.',
+                finish: '🏁 ПРОТОКОЛ ЗАВЕРШЕН', retry: '🔄 ПОВТОРИТЬ ПРОТОКОЛ',
+                stage: 'Уровень', efficiency: 'Эффективность', targets: 'Цели', fire: '🔥 ОГОНЬ',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                passed: '🏆 АБСОЛЮТНЫЙ КИБОРГ. Ни одного промаха по своим.',
+                good: '⚡ ХОРОШИЙ РЕЗУЛЬТАТ. Но следи за союзниками.',
+                bad: '📉 ПРОВАЛ. Ты стреляешь во всё, что движется.'
+            },
+            en: {
+                title: '🔥 CYBORG FLICK',
+                desc: '<strong>Lesson 7:</strong> Target Switching.<br><br>🔴 <b>Red target:</b> Enemy — Press FIRE!<br>🟢 <b>Green target:</b> Friend — DO NOT SHOOT!<br><br>👆 Drag finger to aim.<br>🔥 Press button to shoot.<br><i>Protocol: <span class="highlight">5 Stages</span>. Speed increases.</i>',
+                start: '▶ START PROTOCOL',
+                goal: 'Protocol: <span class="highlight">5 Stages</span>. Speed increases.',
+                finish: '🏁 PROTOCOL COMPLETE', retry: '🔄 RETRY PROTOCOL',
+                stage: 'Stage', efficiency: 'Efficiency', targets: 'Targets', fire: '🔥 FIRE',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                passed: '🏆 ABSOLUTE CYBORG. No friendly fire.',
+                good: '⚡ GOOD RESULT. But watch your allies.',
+                bad: '📉 FAILED. You shoot at everything.'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc' || key === 'goal') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+        }
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+        
+        const TARGETS_PER_STAGE = 20;
+        const MAX_STAGES = 5;
+        const GOAL_SCORE = 80;
+        const GOAL_FF = 0;
+        
+        let state = {
+            playing: false,
+            stage: 1,
+            stageTargetCount: 0,
+            totalTargets: 0,
+            score: 100,
+            friendlyFire: 0,
+            crosshair: { x: 0, y: 0 },
+            targets: [],
+            animFrame: null
+        };
+
+        function resize() {
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+            state.crosshair.x = canvas.width / 2;
+            state.crosshair.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('btn-copy-action').addEventListener('click', function() {
+            const num = document.querySelector('.phone-num').textContent;
+            navigator.clipboard.writeText(num).then(() => {
+                this.textContent = '✅ ' + i18n[lang].copy;
+                setTimeout(() => this.textContent = '📋 ' + i18n[lang].copy, 1500);
+            });
+        });
+
+        gameArea.addEventListener('touchstart', (e) => { e.preventDefault(); updateTouch(e); }, { passive: false });
+        gameArea.addEventListener('touchmove', (e) => { e.preventDefault(); updateTouch(e); }, { passive: false });
+        gameArea.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            state.crosshair.x = e.clientX - rect.left;
+            state.crosshair.y = e.clientY - rect.top;
+        });
+
+        function updateTouch(e) {
+            const rect = canvas.getBoundingClientRect();
+            state.crosshair.x = e.touches[0].clientX - rect.left;
+            state.crosshair.y = e.touches[0].clientY - rect.top;
+        }
+
+        document.getElementById('fire-btn').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+        document.getElementById('fire-btn').addEventListener('click', shoot);
+
+        function startGame() {
+            document.getElementById('start-overlay').style.display = 'none';
+            state.playing = true;
+            state.stage = 1;
+            state.stageTargetCount = 0;
+            state.totalTargets = 0;
+            state.score = 100;
+            state.friendlyFire = 0;
+            state.targets = [];
+            updateUI();
+            showStageNotification(1);
+            spawnTarget();
+            state.animFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function spawnTarget() {
+            if (state.stageTargetCount >= TARGETS_PER_STAGE) { nextStage(); return; }
+            const isFriendly = Math.random() < (0.1 + (state.stage * 0.1));
+            const size = Math.max(15, 35 - (state.stage * 3));
+            state.targets.push({
+                x: Math.random() * (canvas.width - size * 2) + size,
+                y: Math.random() * (canvas.height - size * 2) + size,
+                radius: size,
+                type: isFriendly ? 'friendly' : 'enemy',
+                life: 1500 + Math.random() * 1000,
+                born: Date.now()
+            });
+            state.stageTargetCount++;
+            state.totalTargets++;
+            updateUI();
+        }
+
+        function nextStage() {
+            if (state.stage < MAX_STAGES) {
+                state.stage++;
+                state.stageTargetCount = 0;
+                showStageNotification(state.stage);
+                setTimeout(spawnTarget, 800);
+            } else {
+                finishGame();
+            }
+        }
+
+        function showStageNotification(lvl) {
+            const notif = document.getElementById('stage-notification');
+            const titles = ["НОВОБРАНЕЦ", "ОПЕРАТИВНИК", "ВЕТЕРАН", "ЭЛИТА", "ЯДРО КИБОРГА"];
+            const descs = ["Базовая скорость", "Больше своих", "Быстрая смена", "Мелкие цели", "МАКСИМУМ"];
+            document.getElementById('notif-title').textContent = `ЭТАП ${lvl}: ${titles[lvl-1]}`;
+            document.getElementById('notif-desc').textContent = descs[lvl-1];
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 1500);
+        }
+
+        function shoot() {
+            if (!state.playing) return;
+            let hit = false, hitFriendly = false;
+            for (let i = 0; i < state.targets.length; i++) {
+                const t = state.targets[i];
+                const dx = state.crosshair.x - t.x;
+                const dy = state.crosshair.y - t.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < t.radius + 10) {
+                    hit = true;
+                    if (t.type === 'friendly') hitFriendly = true;
+                    state.targets.splice(i, 1);
+                    break;
+                }
+            }
+            if (hit) {
+                if (hitFriendly) {
+                    state.score = Math.max(0, state.score - 25);
+                    state.friendlyFire++;
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                } else {
+                    state.score = Math.min(100, state.score + 5);
+                }
+            } else {
+                state.score = Math.max(0, state.score - 2);
+            }
+            if (state.targets.length < 1 + state.stage) spawnTarget();
+            updateUI();
+        }
+
+        function gameLoop() {
+            if (!state.playing) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const now = Date.now();
+            for (let i = state.targets.length - 1; i >= 0; i--) {
+                const t = state.targets[i];
+                if (now - t.born > t.life) {
+                    state.targets.splice(i, 1);
+                    state.score = Math.max(0, state.score - 5);
+                    spawnTarget();
+                    updateUI();
+                    continue;
+                }
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, t.radius, 0, Math.PI * 2);
+                ctx.fillStyle = t.type === 'enemy' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(34, 197, 94, 0.2)';
+                ctx.fill();
+                ctx.strokeStyle = t.type === 'enemy' ? '#ef4444' : '#22c55e';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(t.type === 'enemy' ? 'ВРАГ' : 'СВОЙ', t.x, t.y + 4);
+            }
+            if (state.targets.length === 0) spawnTarget();
+            ctx.beginPath();
+            ctx.arc(state.crosshair.x, state.crosshair.y, 10, 0, Math.PI * 2);
+            ctx.strokeStyle = state.score > 80 ? '#4af626' : '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(state.crosshair.x, state.crosshair.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            state.animFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function updateUI() {
+            document.getElementById('stage-val').textContent = `Этап ${state.stage}`;
+            document.getElementById('score-val').textContent = state.score + '%';
+            document.getElementById('target-val').textContent = `${state.stageTargetCount} / ${TARGETS_PER_STAGE}`;
+            const progress = ((state.totalTargets) / (TARGETS_PER_STAGE * MAX_STAGES)) * 100;
+            document.getElementById('session-progress-bar').style.width = Math.min(progress, 100) + '%';
+        }
+
+        function finishGame() {
+            state.playing = false;
+            cancelAnimationFrame(state.animFrame);
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА ===
+            if (state.score >= GOAL_SCORE && state.friendlyFire === GOAL_FF) {
+                localStorage.setItem('lesson_7_passed', 'true');
+            } else {
+                localStorage.removeItem('lesson_7_passed');
+            }
+            // === КОНЕЦ ПАТЧА ===
+            
+            document.getElementById('final-score').textContent = state.score + "%";
+            document.getElementById('final-stats').textContent = `${lang==='ru'?'Выстрелов по своим:':'Friendly fire:'} ${state.friendlyFire}`;
+            let verdict = "", color = "#ef4444";
+            if (state.score >= 90 && state.friendlyFire === 0) { verdict = i18n[lang].passed; color = "#4af626"; }
+            else if (state.score >= 75) { verdict = i18n[lang].good; color = "#fbbf24"; }
+            else { verdict = i18n[lang].bad; }
+            const verdictEl = document.getElementById('final-verdict');
+            verdictEl.textContent = verdict;
+            verdictEl.style.color = color;
+            document.getElementById('finish-overlay').style.display = 'flex';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => setLang(lang));
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>

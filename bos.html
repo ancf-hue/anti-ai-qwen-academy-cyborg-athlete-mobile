@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: БОС-Фидбек</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #050810 0%, #0a0e27 50%, #0d1536 100%);
+            color: #ffffff; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            min-height: 100vh; padding: 15px; overflow-x: hidden; position: relative;
+        }
+        
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 229, 255, 0.05) 0%, transparent 60%);
+            pointer-events: none; z-index: 0;
+        }
+
+        #game-logo {
+            width: 60px; height: 60px; margin: 15px 0 10px;
+            filter: drop-shadow(0 0 15px rgba(0, 229, 255, 0.6));
+            transition: filter 0.3s; position: relative; z-index: 2;
+        }
+
+        #status-panel {
+            width: 100%; max-width: 400px;
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 16px;
+            padding: 15px; margin-bottom: 20px; text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); position: relative; z-index: 2;
+        }
+
+        .stat-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .stat-value { font-size: 24px; font-weight: 900; }
+        
+        #stress-bar-container {
+            width: 100%; height: 12px; background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px; margin-top: 10px; overflow: hidden; position: relative;
+        }
+        #stress-bar {
+            height: 100%; width: 100%; background: linear-gradient(90deg, #4af626, #ff2a5f);
+            transition: width 0.5s ease; box-shadow: 0 0 10px rgba(255, 42, 95, 0.5);
+        }
+        #session-progress-container {
+            width: 100%; height: 8px; background: rgba(255,255,255,0.1);
+            border-radius: 4px; overflow: hidden; margin-top: 10px;
+        }
+        #session-progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #00e5ff, #0070bd);
+            transition: width 0.3s ease;
+        }
+
+        #breathing-zone {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            width: 100%; position: relative; z-index: 2;
+        }
+
+        #breath-circle {
+            width: 200px; height: 200px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 229, 255, 0.2) 0%, rgba(0, 229, 255, 0) 70%);
+            border: 4px solid rgba(0, 229, 255, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.1s linear;
+            box-shadow: 0 0 40px rgba(0, 229, 255, 0.3), inset 0 0 20px rgba(0, 229, 255, 0.2);
+            position: relative;
+        }
+        #breath-circle.active { animation: pulse-glow 4s infinite; }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 40px rgba(0, 229, 255, 0.3); }
+            50% { box-shadow: 0 0 80px rgba(0, 229, 255, 0.6); }
+        }
+
+        #breath-text {
+            font-size: 22px; font-weight: 900; color: #ffffff;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8); z-index: 2; text-align: center;
+        }
+
+        #instruction {
+            margin-top: 30px; font-size: 14px; color: #94a3b8; text-align: center;
+            max-width: 300px; line-height: 1.5;
+        }
+
+        .btn-control {
+            background: linear-gradient(135deg, rgba(0, 229, 255, 0.9), rgba(0, 112, 189, 0.9));
+            border: 2px solid rgba(0, 229, 255, 0.6); color: #ffffff;
+            padding: 16px 32px; border-radius: 12px; font-size: 18px; font-weight: bold;
+            cursor: pointer; margin-top: 20px;
+            box-shadow: 0 6px 0 rgba(0, 70, 120, 0.8), 0 15px 30px rgba(0, 229, 255, 0.3);
+            transition: all 0.1s;
+        }
+        .btn-control:active {
+            transform: translateY(6px);
+            box-shadow: 0 0 0 rgba(0, 70, 120, 0.8), 0 5px 15px rgba(0, 229, 255, 0.3);
+        }
+
+        /* 🔵 СТАРТОВЫЙ ЭКРАН — СТЕКЛЯННЫЙ */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 16, 0.98); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .menu-box {
+            background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 30px; border-radius: 24px; border: 2px solid rgba(0, 229, 255, 0.4);
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+        .menu-box h1 { color: #00e5ff; margin-bottom: 15px; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        .menu-box p { color: #94a3b8; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+        .menu-box .highlight { color: #fff; font-weight: bold; }
+
+        /* 🏁 ЭКРАН ФИНИША */
+        #finish-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 16, 0.98); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            display: none; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .result-score { font-size: 32px; color: #4af626; font-weight: 900; margin: 15px 0; }
+
+        /* 🤝 ФУТЕР — ПОЛНЫЙ СТИЛЬ С I18N */
+        #donation-footer {
+            width: 100%; max-width: 400px;
+            background: rgba(17, 24, 39, 0.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 16px;
+            padding: 18px; text-align: center; margin-top: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); position: relative; z-index: 2;
+        }
+        #donation-footer h3 { font-size: 16px; margin-bottom: 6px; color: #00e5ff; text-shadow: 0 0 10px rgba(0, 229, 255, 0.4); }
+        #donation-footer .heart { font-size: 20px; margin: 8px 0; display: block; animation: heartbeat 1.5s ease-in-out infinite; }
+        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        #donation-footer p { font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 6px 0; }
+        .phone-section {
+            background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 10px; padding: 12px; margin: 12px 0;
+        }
+        .phone-label { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+        .phone-num {
+            font-family: monospace; font-size: 18px; font-weight: bold; color: #38bdf8;
+            letter-spacing: 1px; margin: 4px 0; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+        .btn-copy {
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 12px; padding: 8px 16px; border-radius: 8px;
+            border: 1px solid rgba(148, 163, 184, 0.3); cursor: pointer; margin-top: 8px; transition: all 0.2s;
+        }
+        .btn-copy:hover { background: rgba(74, 246, 38, 0.2); border-color: #4af626; }
+        .security-note { font-size: 11px; color: #4af626; margin: 8px 0; text-shadow: 0 0 8px rgba(74, 246, 38, 0.3); }
+        .thanks { font-size: 14px; color: #f472b6; margin: 10px 0; font-weight: 500; }
+        .main-link {
+            display: inline-block; font-size: 16px; color: #4af626; text-decoration: none; font-weight: bold;
+            margin-top: 12px; padding: 10px 20px; border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px; transition: all 0.3s; background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover { background: rgba(74, 246, 38, 0.2); box-shadow: 0 0 30px rgba(74, 246, 38, 0.5); transform: translateY(-2px); }
+        .catalog-desc { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.4; }
+
+        .stress-alert {
+            animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+            border-color: #ff2a5f !important; box-shadow: 0 0 50px #ff2a5f !important;
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+            position: relative; z-index: 2;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #00e5ff; color: #0b0f19; border-color: #00e5ff;
+            box-shadow: 0 0 15px rgba(0,229,255,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <!-- СТАРТОВЫЙ ЭКРАН -->
+    <div id="start-overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:70px; margin-bottom:15px; filter:drop-shadow(0 0 10px rgba(0,229,255,0.7));">
+            <h1 data-i18n="title">БОС: ДЫХАНИЕ</h1>
+            <p data-i18n="desc">
+                <strong>Цель:</strong> Снизить уровень стресса до 0%.<br>
+                Следуй за кругом.<br><br>
+                🔵 <b>ВДОХ (4 сек)</b> — Круг растет<br>
+                🟡 <b>ЗАДЕРЖКА (7 сек)</b> — Круг стоп<br>
+                🟢 <b>ВЫДОХ (8 сек)</b> — Круг сжимается<br><br>
+                <i data-i18n="vibration_hint">Вибрация поможет чувствовать ритм.</i>
+            </p>
+            <button class="btn-control" onclick="startSession()" data-i18n="start">▶ НАЧАТЬ СЕССИЮ</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ФИНИША -->
+    <div id="finish-overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:70px; margin-bottom:15px; filter:drop-shadow(0 0 10px rgba(0,229,255,0.7));">
+            <h1 data-i18n="finish">🏁 СИСТЕМА СТАБИЛИЗИРОВАНА</h1>
+            <div class="result-score" id="final-cycles">0 циклов</div>
+            <p id="final-verdict" style="color: #00e5ff; font-weight: bold; margin-bottom: 15px;"></p>
+            <button class="btn-control" onclick="resetAndRestart()" style="background:linear-gradient(135deg, #fbbf24, #f59e0b);" data-i18n="retry">🔄 ПОВТОРИТЬ СЕССИЮ</button>
+        </div>
+    </div>
+
+    <!-- ЛОГОТИП ВВЕРХУ -->
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <!-- ПАНЕЛЬ СТАТУСА -->
+    <div id="status-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <div class="stat-label" data-i18n="stress">УРОВЕНЬ СТРЕССА</div>
+                <div class="stat-value" id="stress-text" style="color:#ff2a5f;">100%</div>
+            </div>
+            <div>
+                <div class="stat-label" data-i18n="cycle">ЦИКЛ</div>
+                <div class="stat-value" style="color:#00e5ff;" id="cycle-count">0</div>
+            </div>
+        </div>
+        <div id="stress-bar-container">
+            <div id="stress-bar"></div>
+        </div>
+        <div id="session-progress-container">
+            <div id="session-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ЗОНА ДЫХАНИЯ -->
+    <div id="breathing-zone">
+        <div id="breath-circle">
+            <div id="breath-text" data-i18n="wait">Жди...</div>
+        </div>
+        <div id="instruction" data-i18n="tap_hint">Нажми на экран, чтобы синхронизироваться</div>
+    </div>
+
+    <!-- 🤝 ФУТЕР С ПОЛНЫМ ТЕКСТОМ ДОНАТА -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <span class="heart">❤️</span>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-section">
+            <div class="phone-label" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+            <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p class="security-note" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p class="thanks" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p class="catalog-desc" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: 'БОС: ДЫХАНИЕ',
+                desc: '<strong>Цель:</strong> Снизить уровень стресса до 0%.<br>Следуй за кругом.<br><br>🔵 <b>ВДОХ (4 сек)</b> — Круг растет<br>🟡 <b>ЗАДЕРЖКА (7 сек)</b> — Круг стоп<br>🟢 <b>ВЫДОХ (8 сек)</b> — Круг сжимается<br><br><i>Вибрация поможет чувствовать ритм.</i>',
+                start: '▶ НАЧАТЬ СЕССИЮ',
+                finish: '🏁 СИСТЕМА СТАБИЛИЗИРОВАНА', retry: '🔄 ПОВТОРИТЬ СЕССИЮ',
+                stress: 'УРОВЕНЬ СТРЕССА', cycle: 'ЦИКЛ',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                vibration_hint: 'Вибрация поможет чувствовать ритм.',
+                tap_hint: 'Нажми на экран, чтобы синхронизироваться',
+                wait: 'Жди...', inhale: 'ВДОХ', hold: 'ДЕРЖИ', exhale: 'ВЫДОХ',
+                victory: 'СИСТЕМА СТАБИЛИЗИРОВАНА!\n\nТы научился гасить панику.\nЭто состояние киборга.\n\nСохрани этот ритм дыхания.',
+                cycles_completed: 'циклов', copied: '✅ Скопировано!'
+            },
+            en: {
+                title: 'BOS: BREATHING',
+                desc: '<strong>Goal:</strong> Reduce stress level to 0%.<br>Follow the circle.<br><br>🔵 <b>INHALE (4s)</b> — Circle grows<br>🟡 <b>HOLD (7s)</b> — Circle stops<br>🟢 <b>EXHALE (8s)</b> — Circle shrinks<br><br><i>Vibration helps feel the rhythm.</i>',
+                start: '▶ START SESSION',
+                finish: '🏁 SYSTEM STABILIZED', retry: '🔄 RETRY SESSION',
+                stress: 'STRESS LEVEL', cycle: 'CYCLE',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                vibration_hint: 'Vibration helps feel the rhythm.',
+                tap_hint: 'Tap screen to synchronize',
+                wait: 'Wait...', inhale: 'INHALE', hold: 'HOLD', exhale: 'EXHALE',
+                victory: 'SYSTEM STABILIZED!\n\nYou learned to calm panic.\nThis is cyborg state.\n\nKeep this breathing rhythm.',
+                cycles_completed: 'cycles', copied: '✅ Copied!'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+            updateDynamicTexts();
+        }
+
+        function updateDynamicTexts() {
+            const breathText = document.getElementById('breath-text');
+            const instruction = document.getElementById('instruction');
+            if (breathText && !isRunning) breathText.textContent = i18n[lang].wait;
+            if (instruction) instruction.textContent = i18n[lang].tap_hint;
+        }
+
+        // ============================================
+        // ⚙️ КОНФИГУРАЦИЯ БОС-ТРЕНАЖЁРА
+        // ============================================
+        const INHALE_TIME = 4000;
+        const HOLD_TIME = 7000;
+        const EXHALE_TIME = 8000;
+        const CYCLE_DURATION = INHALE_TIME + HOLD_TIME + EXHALE_TIME;
+        
+        // ============================================
+        // 📊 СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+        // ============================================
+        let stressLevel = 100;
+        let cycles = 0;
+        let isRunning = false;
+        let audioCtx = null;
+        let currentPhaseTimeout = null;
+        
+        // ============================================
+        // 🔊 АУДИО-ФУНКЦИИ
+        // ============================================
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+        
+        function playDrone(frequency, volume) {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+            oscillator.start(audioCtx.currentTime);
+            oscillator.stop(audioCtx.currentTime + 0.5);
+        }
+        
+        // ============================================
+        // 📳 ВИБРАЦИЯ
+        // ============================================
+        function vibrate(pattern) {
+            if (navigator.vibrate) navigator.vibrate(pattern);
+        }
+        
+        // ============================================
+        // 📋 КОПИРОВАНИЕ НОМЕРА
+        // ============================================
+        document.getElementById('btn-copy-action').addEventListener('click', function() {
+            const phoneNumber = document.getElementById('num-to-copy').textContent;
+            navigator.clipboard.writeText(phoneNumber).then(function() {
+                const copyButton = document.getElementById('btn-copy-action');
+                const originalText = copyButton.textContent;
+                copyButton.textContent = '✅ ' + i18n[lang].copy.replace('📋 ', '');
+                setTimeout(function() { copyButton.textContent = originalText; }, 2000);
+            });
+        });
+        
+        // ============================================
+        // 🎮 ЗАПУСК СЕССИИ
+        // ============================================
+        function startSession() {
+            initAudio();
+            document.getElementById('start-overlay').style.display = 'none';
+            isRunning = true;
+            stressLevel = 100;
+            cycles = 0;
+            updateUI();
+            runCycle();
+        }
+        
+        // ============================================
+        // 🔄 ОСНОВНОЙ ЦИКЛ ДЫХАНИЯ (4-7-8)
+        // ============================================
+        function runCycle() {
+            if (!isRunning) return;
+            
+            // === ФАЗА 1: ВДОХ ===
+            animateCircle('grow', INHALE_TIME);
+            document.getElementById('breath-text').textContent = i18n[lang].inhale;
+            playDrone(200, 0.1);
+            vibrate(50);
+            
+            currentPhaseTimeout = setTimeout(function() {
+                if (!isRunning) return;
+                
+                // === ФАЗА 2: ЗАДЕРЖКА ===
+                document.getElementById('breath-text').textContent = i18n[lang].hold;
+                document.getElementById('breath-circle').classList.add('active');
+                playDrone(300, 0.15);
+                
+                currentPhaseTimeout = setTimeout(function() {
+                    if (!isRunning) return;
+                    
+                    // === ФАЗА 3: ВЫДОХ ===
+                    animateCircle('shrink', EXHALE_TIME);
+                    document.getElementById('breath-circle').classList.remove('active');
+                    document.getElementById('breath-text').textContent = i18n[lang].exhale;
+                    playDrone(150, 0.2);
+                    
+                    stressLevel = Math.max(0, stressLevel - 10);
+                    cycles = cycles + 1;
+                    updateUI();
+                    
+                    currentPhaseTimeout = setTimeout(function() {
+                        if (isRunning) runCycle();
+                    }, EXHALE_TIME);
+                    
+                }, HOLD_TIME);
+                
+            }, INHALE_TIME);
+        }
+        
+        // ============================================
+        // 🎨 АНИМАЦИЯ КРУГА
+        // ============================================
+        function animateCircle(direction, duration) {
+            const circle = document.getElementById('breath-circle');
+            if (direction === 'grow') {
+                circle.style.transform = 'scale(1.5)';
+                circle.style.borderColor = '#00e5ff';
+            } else {
+                circle.style.transform = 'scale(0.8)';
+                circle.style.borderColor = '#4af626';
+            }
+            circle.style.transition = 'transform ' + duration + 'ms ease-in-out';
+        }
+        
+        // ============================================
+        // 📊 ОБНОВЛЕНИЕ ИНТЕРФЕЙСА
+        // ============================================
+        function updateUI() {
+            const stressBar = document.getElementById('stress-bar');
+            const stressText = document.getElementById('stress-text');
+            const cycleCount = document.getElementById('cycle-count');
+            const logo = document.getElementById('game-logo');
+            const progress = document.getElementById('session-progress-bar');
+            
+            stressBar.style.width = stressLevel + '%';
+            stressText.textContent = stressLevel + '%';
+            cycleCount.textContent = cycles;
+            progress.style.width = (100 - stressLevel) + '%';
+            
+            if (stressLevel > 60) {
+                stressText.style.color = '#ff2a5f';
+            } else if (stressLevel > 30) {
+                stressText.style.color = '#fbbf24';
+            } else {
+                stressText.style.color = '#4af626';
+                if (stressLevel === 0) finishGame();
+            }
+            
+            if (stressLevel > 80) {
+                logo.classList.add('stress-alert');
+                vibrate([100, 50, 100]);
+            } else {
+                logo.classList.remove('stress-alert');
+            }
+        }
+        
+        // ============================================
+        // 🏆 ЗАВЕРШЕНИЕ ТРЕНИРОВКИ
+        // ============================================
+        function finishGame() {
+            isRunning = false;
+            if (currentPhaseTimeout) clearTimeout(currentPhaseTimeout);
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА ===
+            localStorage.setItem('lesson_3_passed', 'true');
+            // === КОНЕЦ ПАТЧА ===
+            
+            document.getElementById('breath-text').textContent = '✅ ' + (lang === 'ru' ? 'ПОБЕДА' : 'VICTORY');
+            playDrone(500, 0.3);
+            vibrate([100, 100, 200, 100, 400]);
+            
+            document.getElementById('final-cycles').textContent = cycles + ' ' + i18n[lang].cycles_completed;
+            document.getElementById('final-verdict').textContent = i18n[lang].victory;
+            document.getElementById('finish-overlay').style.display = 'flex';
+        }
+        
+        function resetAndRestart() {
+            document.getElementById('finish-overlay').style.display = 'none';
+            if (currentPhaseTimeout) clearTimeout(currentPhaseTimeout);
+            stressLevel = 100;
+            cycles = 0;
+            isRunning = false;
+            document.getElementById('start-overlay').style.display = 'flex';
+            document.getElementById('breath-text').textContent = i18n[lang].wait;
+            updateUI();
+            updateDynamicTexts();
+        }
+        
+        // ============================================
+        // 👆 ИНТЕРАКТИВ: ТАП ПО ЭКРАНУ
+        // ============================================
+        document.addEventListener('click', function(e) {
+            if (isRunning && stressLevel > 0) {
+                // Игнорируем клики по кнопкам и оверлеям
+                if (e.target.closest('.btn-control') || e.target.closest('#start-overlay') || e.target.closest('#finish-overlay')) return;
+                stressLevel = Math.max(0, stressLevel - 2);
+                updateUI();
+                vibrate(10);
+            }
+        });
+        document.addEventListener('touchstart', function(e) {
+            if (isRunning && stressLevel > 0) {
+                if (e.target.closest('.btn-control') || e.target.closest('#start-overlay') || e.target.closest('#finish-overlay')) return;
+                stressLevel = Math.max(0, stressLevel - 2);
+                updateUI();
+                vibrate(10);
+            }
+        }, { passive: true });
+        
+        // Блокировка зума
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+        
+        // Инициализация
+        window.addEventListener('load', () => setLang(lang));
+    </script>
+</body>
+</html>

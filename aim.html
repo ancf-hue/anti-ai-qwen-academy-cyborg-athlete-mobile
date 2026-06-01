@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: Прицел PRO</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            background: linear-gradient(135deg, #0a0e27 0%, #1a2744 50%, #0d1536 100%);
+            color: #ffffff; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; overflow: hidden; touch-action: none;
+            position: relative;
+        }
+        
+        /* 🔵 СИНИЙ СТЕКЛЯННЫЙ ФОН (как в Уроке 1) */
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 20% 50%, rgba(56, 189, 248, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(74, 246, 38, 0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 40% 20%, rgba(255, 42, 95, 0.1) 0%, transparent 50%);
+            pointer-events: none; z-index: 0;
+        }
+        
+        #game-logo {
+            width: 60px; height: 60px; margin: 15px 0 10px;
+            filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.6));
+            position: relative; z-index: 2;
+        }
+        
+        #stats-panel {
+            width: 95%; max-width: 400px; 
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative; z-index: 2;
+        }
+        .stats-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 18px; font-weight: bold; color: #38bdf8; }
+        .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        
+        #session-progress-container {
+            width: 100%; height: 8px; background: rgba(255,255,255,0.1);
+            border-radius: 4px; overflow: hidden;
+        }
+        #session-progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+            transition: width 0.3s ease;
+        }
+
+        #game-area {
+            width: 95%; max-width: 400px; flex: 1; position: relative;
+            background: rgba(0, 0, 0, 0.4); border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5); margin-bottom: 12px;
+            position: relative; z-index: 2;
+        }
+        canvas { width: 100%; height: 100%; display: block; cursor: none; }
+
+        #stage-notification {
+            position: absolute;
+            top: 40%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #38bdf8;
+            padding: 15px 30px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 10;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        #stage-notification.show { opacity: 1; }
+        #stage-notification h2 { color: #38bdf8; margin: 0; font-size: 24px; }
+        #stage-notification p { color: #fff; margin: 5px 0 0; font-size: 14px; }
+
+        /* 🔵 СТАРТОВЫЙ ЭКРАН — СИНИЙ СТЕКЛЯННЫЙ (как в Уроке 1) */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 14, 39, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .menu-box {
+            background: rgba(22, 31, 51, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 32px 28px; border-radius: 24px;
+            border: 2px solid rgba(56, 189, 248, 0.3);
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 
+                0 25px 50px rgba(0, 0, 0, 0.5),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+        }
+        .menu-box h1 { 
+            margin-bottom: 18px; font-size: 28px; color: #38bdf8;
+            text-transform: uppercase; letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.6);
+        }
+        .menu-box p { margin-bottom: 26px; color: #94a3b8; line-height: 1.6; font-size: 15px; }
+        .menu-box .highlight { color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .btn-action {
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(14, 165, 233, 0.95));
+            color: #0b0f19; font-size: 19px; width: 100%; padding: 18px;
+            border-radius: 16px; border: none; font-weight: 900; cursor: pointer;
+            box-shadow:
+                0 8px 0 rgba(3, 105, 161, 0.8),
+                0 20px 40px rgba(56, 189, 248, 0.4),
+                inset 0 2px 10px rgba(255, 255, 255, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            letter-spacing: 1px;
+        }
+        .btn-action:active {
+            transform: translateY(8px);
+            box-shadow:
+                0 0 0 rgba(3, 105, 161, 0.8),
+                0 10px 20px rgba(56, 189, 248, 0.4),
+                inset 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .btn-action:hover {
+            filter: brightness(1.15);
+            box-shadow:
+                0 8px 0 rgba(3, 105, 161, 0.8),
+                0 20px 50px rgba(56, 189, 248, 0.6),
+                inset 0 2px 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        .result-score { font-size: 32px; color: #4af626; font-weight: 900; margin: 15px 0; }
+
+        /* 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ (как в Уроке 1) */
+        #donation-footer {
+            width: 100%; max-width: 400px;
+            background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 16px;
+            padding: 15px; text-align: center; margin-bottom: 15px;
+            position: relative; z-index: 2;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        #donation-footer h3 { font-size: 16px; margin-bottom: 5px; color: #38bdf8; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin: 5px 0; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px; margin: 10px 0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .phone-num { font-family: monospace; font-size: 16px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+        .main-link {
+            display: inline-block;
+            font-size: 16px;
+            color: #4af626;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s;
+            background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover {
+            background: rgba(74, 246, 38, 0.2);
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+            position: relative; z-index: 2;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #38bdf8; color: #0b0f19; border-color: #38bdf8;
+            box-shadow: 0 0 15px rgba(56,189,248,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <!-- СТАРТОВЫЙ ЭКРАН — 🔵 СИНИЙ СТЕКЛЯННЫЙ -->
+    <div id="start-overlay" class="overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:90px; height:90px; margin:0 auto 24px; display:block; filter:drop-shadow(0 0 25px rgba(56,189,248,0.7));">
+            <h1 data-i18n="title">🎯 КИБОРГ-ПРИЦЕЛ: PRO</h1>
+            <p data-i18n="desc">
+                <strong>Протокол:</strong> 5 Этапов прогрессии.<br><br>
+                🎯 <b>Этап 1:</b> Медленная цель<br>
+                🚀 <b>Этап 5:</b> Хаотичный рывок<br><br>
+                👆 Держи прицел на голове (красная точка).<br>
+                Всего целей: <span class="highlight">100 (20 на этап)</span>.<br>
+            </p>
+            <button class="btn-action" onclick="startGame()" data-i18n="start">▶ ЗАПУСТИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ФИНИША -->
+    <div id="finish-overlay" class="overlay" style="display: none;">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:90px; height:90px; margin:0 auto 24px; display:block; filter:drop-shadow(0 0 25px rgba(56,189,248,0.7));">
+            <h1 data-i18n="finish">🏁 ПРОТОКОЛ ЗАВЕРШЕН</h1>
+            <div class="result-score" id="final-score">0%</div>
+            <p id="final-stats">Среднее отклонение: 0px</p>
+            <p id="final-verdict" style="color: #38bdf8; font-weight: bold; margin-bottom: 15px;"></p>
+            <button class="btn-action" onclick="location.reload()" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#0b0f19;" data-i18n="retry">🔄 ПОВТОРИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <!-- СТАТИСТИКА + ПРОГРЕСС -->
+    <div id="stats-panel">
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-val" id="stage-val">Этап 1</div>
+                <div class="stat-lbl" data-i18n="stage">Уровень</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="score-val">100%</div>
+                <div class="stat-lbl" data-i18n="accuracy">Точность</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="target-val">1 / 20</div>
+                <div class="stat-lbl" data-i18n="target">Цель этапа</div>
+            </div>
+        </div>
+        <div id="session-progress-container">
+            <div id="session-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ИГРОВАЯ ЗОНА -->
+    <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+        
+        <!-- Уведомление о новом этапе -->
+        <div id="stage-notification">
+            <h2 id="notif-title">ЭТАП 2</h2>
+            <p id="notif-desc">Скорость увеличена</p>
+        </div>
+    </div>
+
+    <!-- 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-box">
+            <div style="text-align: left;">
+                <div style="font-size:10px; color:#64748b; margin-bottom:3px;" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+                <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            </div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p style="font-size:10px; color:#4af626;" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p style="font-size:12px; color:#f472b6; margin:8px 0;" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p style="font-size:10px; color:#64748b; margin-top:5px;" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: '🎯 КИБОРГ-ПРИЦЕЛ: PRO',
+                desc: '<strong>Протокол:</strong> 5 Этапов прогрессии.<br><br>🎯 <b>Этап 1:</b> Медленная цель<br>🚀 <b>Этап 5:</b> Хаотичный рывок<br><br>👆 Держи прицел на голове (красная точка).<br>Всего целей: <span class="highlight">100 (20 на этап)</span>.<br>',
+                start: '▶ ЗАПУСТИТЬ ПРОТОКОЛ',
+                finish: '🏁 ПРОТОКОЛ ЗАВЕРШЕН', retry: '🔄 ПОВТОРИТЬ ПРОТОКОЛ',
+                stage: 'Уровень', accuracy: 'Точность', target: 'Цель этапа',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                passed: '🏆 ПОЛНАЯ ИНТЕГРАЦИЯ. Ты прошел все 5 этапов.',
+                good: '⚡ ОТЛИЧНЫЙ РЕЗУЛЬТАТ. Но на 5 этапе точность падает.',
+                bad: '📉 ПРОТОКОЛ ПРОВАЛЕН. Скорость сломила твой контроль.'
+            },
+            en: {
+                title: '🎯 CYBORG AIM: PRO',
+                desc: '<strong>Protocol:</strong> 5 Progressive Stages.<br><br>🎯 <b>Stage 1:</b> Slow target<br>🚀 <b>Stage 5:</b> Chaotic dash<br><br>👆 Keep crosshair on head (red dot).<br>Total targets: <span class="highlight">100 (20 per stage)</span>.<br>',
+                start: '▶ START PROTOCOL',
+                finish: '🏁 PROTOCOL COMPLETE', retry: '🔄 RETRY PROTOCOL',
+                stage: 'Stage', accuracy: 'Accuracy', target: 'Stage target',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                passed: '🏆 FULL INTEGRATION. You completed all 5 stages.',
+                good: '⚡ EXCELLENT RESULT. But accuracy drops on stage 5.',
+                bad: '📉 PROTOCOL FAILED. Speed broke your control.'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+        }
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+        
+        const TARGETS_PER_STAGE = 20;
+        const MAX_STAGES = 5;
+        const BASE_SPEED = 2.0;
+        const GOAL_ACC = 80;
+        const GOAL_DEV = 15;
+        
+        let state = {
+            playing: false,
+            stage: 1,
+            stageTargetCount: 0,
+            totalTargets: 0,
+            accuracy: 100,
+            totalDeviation: 0,
+            samples: 0,
+            target: { x: 0, y: 0, radius: 18, speedX: 0, speedY: 0, active: false, timer: 0 },
+            crosshair: { x: 0, y: 0 },
+            touch: { active: false, x: 0, y: 0 },
+            animFrame: null
+        };
+
+        function resize() {
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+            state.crosshair.x = canvas.width / 2;
+            state.crosshair.y = canvas.height / 2;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('btn-copy-action').addEventListener('click', function() {
+            const num = document.querySelector('.phone-num').textContent;
+            navigator.clipboard.writeText(num).then(() => {
+                this.textContent = '✅ ' + i18n[lang].copy;
+                setTimeout(() => this.textContent = '📋 ' + i18n[lang].copy, 1500);
+            });
+        });
+
+        gameArea.addEventListener('touchstart', (e) => { e.preventDefault(); state.touch.active = true; updateTouch(e); }, { passive: false });
+        gameArea.addEventListener('touchmove', (e) => { e.preventDefault(); updateTouch(e); }, { passive: false });
+        gameArea.addEventListener('touchend', () => { state.touch.active = false; });
+        gameArea.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            state.crosshair.x = e.clientX - rect.left;
+            state.crosshair.y = e.clientY - rect.top;
+        });
+
+        function updateTouch(e) {
+            const rect = canvas.getBoundingClientRect();
+            state.crosshair.x = e.touches[0].clientX - rect.left;
+            state.crosshair.y = e.touches[0].clientY - rect.top;
+        }
+
+        function startGame() {
+            document.getElementById('start-overlay').style.display = 'none';
+            state.playing = true;
+            state.stage = 1;
+            state.stageTargetCount = 0;
+            state.totalTargets = 0;
+            state.accuracy = 100;
+            state.totalDeviation = 0;
+            state.samples = 0;
+            updateUI();
+            showStageNotification(1);
+            spawnTarget();
+            state.animFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function spawnTarget() {
+            if (state.stageTargetCount >= TARGETS_PER_STAGE) { nextStage(); return; }
+            state.target.active = true;
+            state.target.x = Math.random() * (canvas.width - 60) + 30;
+            state.target.y = Math.random() * (canvas.height - 60) + 30;
+            const speedMult = 1 + ((state.stage - 1) * 0.6);
+            const erratic = (state.stage > 3) ? 1.5 : 1;
+            state.target.speedX = (Math.random() - 0.5) * BASE_SPEED * 2 * speedMult * erratic;
+            state.target.speedY = (Math.random() - 0.5) * BASE_SPEED * 2 * speedMult * erratic;
+            state.target.timer = Date.now();
+        }
+
+        function nextStage() {
+            if (state.stage < MAX_STAGES) {
+                state.stage++;
+                state.stageTargetCount = 0;
+                state.target.active = false;
+                showStageNotification(state.stage);
+                setTimeout(spawnTarget, 1000);
+            } else {
+                finishGame();
+            }
+        }
+
+        function showStageNotification(lvl) {
+            const notif = document.getElementById('stage-notification');
+            const titles = ["НОВОБРАНЕЦ", "ОПЕРАТИВНИК", "ВЕТЕРАН", "ЭЛИТА", "ЯДРО КИБОРГА"];
+            const descs = ["Базовая скорость", "Скорость x1.5", "Скорость x2.0", "Хаотичное движение", "МАКСИМУМ"];
+            document.getElementById('notif-title').textContent = `ЭТАП ${lvl}: ${titles[lvl-1]}`;
+            document.getElementById('notif-desc').textContent = descs[lvl-1];
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 1500);
+        }
+
+        function gameLoop() {
+            if (!state.playing) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.target.active) {
+                state.target.x += state.target.speedX;
+                state.target.y += state.target.speedY;
+                if (state.target.x < state.target.radius || state.target.x > canvas.width - state.target.radius) state.target.speedX *= -1;
+                if (state.target.y < state.target.radius || state.target.y > canvas.height - state.target.radius) state.target.speedY *= -1;
+                if (Date.now() - state.target.timer > 2500) {
+                    state.target.active = false;
+                    state.stageTargetCount++;
+                    state.totalTargets++;
+                    updateUI();
+                    setTimeout(spawnTarget, 300);
+                }
+                ctx.beginPath();
+                ctx.arc(state.target.x, state.target.y, state.target.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+                ctx.fill();
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(state.target.x, state.target.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#ef4444';
+                ctx.fill();
+            }
+            const dx = state.crosshair.x - state.target.x;
+            const dy = state.crosshair.y - state.target.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (state.target.active) {
+                state.totalDeviation += dist;
+                state.samples++;
+                const avgDev = state.totalDeviation / state.samples;
+                const currentAcc = Math.max(0, 100 - (avgDev / 1.5));
+                state.accuracy = Math.round(currentAcc);
+            }
+            ctx.beginPath();
+            ctx.arc(state.crosshair.x, state.crosshair.y, 12, 0, Math.PI * 2);
+            ctx.strokeStyle = state.accuracy > 80 ? '#4af626' : (state.accuracy > 50 ? '#fbbf24' : '#ff2a5f');
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(state.crosshair.x - 16, state.crosshair.y);
+            ctx.lineTo(state.crosshair.x + 16, state.crosshair.y);
+            ctx.moveTo(state.crosshair.x, state.crosshair.y - 16);
+            ctx.lineTo(state.crosshair.x, state.crosshair.y + 16);
+            ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            updateUI();
+            state.animFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function updateUI() {
+            document.getElementById('stage-val').textContent = `Этап ${state.stage}`;
+            document.getElementById('score-val').textContent = state.accuracy + '%';
+            document.getElementById('target-val').textContent = `${state.stageTargetCount + 1} / ${TARGETS_PER_STAGE}`;
+            const avgDev = state.samples > 0 ? Math.round(state.totalDeviation / state.samples) : 0;
+            const devEl = document.getElementById('stage-val');
+            devEl.style.color = state.accuracy > 80 ? '#4af626' : '#38bdf8';
+            const totalMax = TARGETS_PER_STAGE * MAX_STAGES;
+            const progress = ((state.totalTargets) / totalMax) * 100;
+            document.getElementById('session-progress-bar').style.width = Math.min(progress, 100) + '%';
+        }
+
+        function finishGame() {
+            state.playing = false;
+            cancelAnimationFrame(state.animFrame);
+            const avgDev = state.samples > 0 ? Math.round(state.totalDeviation / state.samples) : 0;
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА ===
+            if (state.accuracy >= GOAL_ACC && avgDev < GOAL_DEV) {
+                localStorage.setItem('lesson_6_passed', 'true');
+            } else {
+                localStorage.removeItem('lesson_6_passed');
+            }
+            // === КОНЕЦ ПАТЧА ===
+            
+            document.getElementById('final-score').textContent = state.accuracy + "%";
+            document.getElementById('final-stats').textContent = `${lang==='ru'?'Среднее отклонение:':'Avg deviation:'} ${avgDev}px`;
+            let verdict = "", color = "#38bdf8";
+            if (state.accuracy >= 90 && avgDev < 15) { verdict = i18n[lang].passed; color = "#4af626"; }
+            else if (state.accuracy >= 75) { verdict = i18n[lang].good; }
+            else { verdict = i18n[lang].bad; color = "#ff2a5f"; }
+            const verdictEl = document.getElementById('final-verdict');
+            verdictEl.textContent = verdict;
+            verdictEl.style.color = color;
+            document.getElementById('finish-overlay').style.display = 'flex';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => setLang(lang));
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>

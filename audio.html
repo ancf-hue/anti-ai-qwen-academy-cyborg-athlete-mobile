@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Киборг-Атлет: Аудио локализация</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        body {
+            background: linear-gradient(135deg, #050810 0%, #0a0e27 50%, #0d1536 100%);
+            color: #ffffff; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; overflow: hidden; touch-action: none;
+            position: relative;
+        }
+        body::before {
+            content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.05) 0%, transparent 60%);
+            pointer-events: none; z-index: 0;
+        }
+        #game-logo { width: 60px; height: 60px; margin: 15px 0 10px; filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.6)); position: relative; z-index: 2; }
+        
+        #stats-panel {
+            width: 95%; max-width: 400px; 
+            background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 12px; margin-bottom: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative; z-index: 2;
+        }
+        .stats-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .stat-item { text-align: center; }
+        .stat-val { font-size: 18px; font-weight: bold; color: #a855f7; }
+        .stat-lbl { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+        
+        #session-progress-container {
+            width: 100%; height: 8px; background: rgba(255,255,255,0.1);
+            border-radius: 4px; overflow: hidden;
+        }
+        #session-progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #a855f7, #7e22ce);
+            transition: width 0.3s ease;
+        }
+
+        #game-area {
+            width: 95%; max-width: 400px; flex: 1; position: relative;
+            background: rgba(0, 0, 0, 0.4); border-radius: 16px; overflow: hidden;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5); margin-bottom: 12px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative; z-index: 2;
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        #instruction-overlay {
+            position: absolute; bottom: 20px; left: 0; width: 100%;
+            text-align: center; color: #a855f7; font-weight: bold; font-size: 14px;
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+            pointer-events: none; transition: color 0.2s;
+        }
+
+        #stage-notification {
+            position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85); border: 2px solid #a855f7;
+            padding: 15px 30px; border-radius: 12px; text-align: center;
+            z-index: 10; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        #stage-notification.show { opacity: 1; }
+        #stage-notification h2 { color: #a855f7; margin: 0; font-size: 24px; }
+        #stage-notification p { color: #fff; margin: 5px 0 0; font-size: 14px; }
+
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(5, 8, 16, 0.98); backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex; align-items: center; justify-content: center; z-index: 99999;
+        }
+        .menu-box {
+            background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 30px; border-radius: 24px;
+            border: 2px solid rgba(168, 85, 247, 0.4);
+            max-width: 400px; width: 90%; text-align: center;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+        .menu-box h1 { color: #a855f7; margin-bottom: 15px; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; }
+        .menu-box p { color: #94a3b8; margin-bottom: 20px; font-size: 14px; line-height: 1.5; }
+        .menu-box .highlight { color: #fff; font-weight: bold; }
+        .btn-action {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.95), rgba(126, 34, 206, 0.95));
+            color: #0b0f19; border: none; padding: 15px 30px;
+            border-radius: 12px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%;
+            margin-top: 10px; transition: all 0.2s;
+            box-shadow: 0 8px 0 rgba(88, 28, 135, 0.8), 0 20px 40px rgba(168, 85, 247, 0.4), inset 0 2px 10px rgba(255,255,255,0.4);
+        }
+        .btn-action:active { transform: translateY(4px); box-shadow: 0 0 0 rgba(88, 28, 135, 0.8), 0 10px 20px rgba(168, 85, 247, 0.4), inset 0 2px 10px rgba(0,0,0,0.2); }
+        .btn-action:hover { filter: brightness(1.1); }
+        .btn-action:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        .btn-test {
+            background: transparent; border: 2px solid #a855f7; color: #a855f7;
+            padding: 10px 20px; border-radius: 10px; font-size: 14px; cursor: pointer;
+            margin-top: 10px; width: 100%; transition: 0.2s;
+        }
+        .btn-test:active { background: rgba(168, 85, 247, 0.2); }
+        .result-score { font-size: 32px; color: #4af626; font-weight: 900; margin: 15px 0; }
+
+        #donation-footer {
+            width: 100%; max-width: 400px; background: rgba(17, 24, 39, 0.5);
+            backdrop-filter: blur(10px); border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 16px; padding: 15px; text-align: center; margin-bottom: 15px;
+            position: relative; z-index: 2;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
+        }
+        #donation-footer h3 { font-size: 16px; margin-bottom: 5px; color: #a855f7; }
+        #donation-footer p { font-size: 12px; color: #94a3b8; line-height: 1.4; margin: 5px 0; }
+        .phone-box {
+            background: rgba(3, 7, 18, 0.6); border: 1px solid rgba(55, 65, 81, 0.5);
+            border-radius: 8px; padding: 10px; margin: 10px 0;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .phone-num { font-family: monospace; font-size: 16px; font-weight: bold; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        .btn-copy { 
+            background: linear-gradient(135deg, rgba(55, 65, 81, 0.9), rgba(31, 41, 55, 0.95));
+            color: #f3f4f6; font-size: 11px; padding: 5px 10px; border-radius: 4px; width: auto;
+            border: 1px solid rgba(148, 163, 184, 0.3); cursor: pointer; transition: 0.2s;
+        }
+        .btn-copy:active { transform: translateY(2px); }
+        .main-link {
+            display: inline-block; font-size: 16px; color: #4af626; text-decoration: none;
+            font-weight: bold; margin-top: 10px; padding: 10px 20px;
+            border: 2px solid rgba(74, 246, 38, 0.5); border-radius: 12px;
+            transition: all 0.3s; background: rgba(74, 246, 38, 0.1);
+            backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(74, 246, 38, 0.2);
+        }
+        .main-link:hover { background: rgba(74, 246, 38, 0.2); box-shadow: 0 0 30px rgba(74, 246, 38, 0.5); transform: translateY(-2px); }
+        .audio-status {
+            font-size: 11px; color: #fbbf24; margin-top: 10px;
+            background: rgba(0,0,0,0.5); padding: 4px 8px;
+            border-radius: 20px; display: inline-block;
+        }
+        
+        /* Языковой переключатель */
+        .lang-switch {
+            display: flex; justify-content: center; gap: 10px; margin: 15px 0;
+            position: relative; z-index: 2;
+        }
+        .lang-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: bold;
+            cursor: pointer; transition: 0.3s;
+        }
+        .lang-btn.active {
+            background: #a855f7; color: #0b0f19; border-color: #a855f7;
+            box-shadow: 0 0 15px rgba(168,85,247,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЯЗЫКОВОЙ ПЕРЕКЛЮЧАТЕЛЬ -->
+    <div class="lang-switch">
+        <button class="lang-btn active" onclick="setLang('ru')">RU</button>
+        <button class="lang-btn" onclick="setLang('en')">EN</button>
+    </div>
+
+    <!-- СТАРТОВЫЙ ЭКРАН -->
+    <div id="start-overlay" class="overlay">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:60px; margin-bottom:15px; filter:drop-shadow(0 0 10px rgba(168,85,247,0.7));">
+            <h1 data-i18n="title">🔊 КИБОРГ-АУДИО</h1>
+            <p data-i18n="desc">
+                <strong>Урок 8:</strong> 3D-локализация звука.<br><br>
+                🎧 <b>НАДЕНЬ НАУШНИКИ!</b><br>
+                👆 Свайпни от центра радара туда, откуда слышишь шаги.<br>
+                🔴 <b>Красная точка</b> на радаре показывает источник звука.<br>
+                <i>Протокол: <span class="highlight">5 Этапов</span>. Сложность растет.</i>
+            </p>
+            <div id="audio-status-test" class="audio-status" data-i18n="audio_status">⚡ Нажми, чтобы активировать звук</div>
+            <button class="btn-test" onclick="initAndTestAudio()" data-i18n="test_audio">🔊 ПРОВЕРИТЬ ЗВУК</button>
+            <button class="btn-action" onclick="startGame()" id="btn-start-game" disabled style="margin-top:15px; opacity:0.5;" data-i18n="start">🎯 ЗАПУСТИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <!-- ЭКРАН ФИНИША -->
+    <div id="finish-overlay" class="overlay" style="display: none;">
+        <div class="menu-box">
+            <img src="favicon.ico" alt="Logo" style="width:60px; margin-bottom:15px; filter:drop-shadow(0 0 10px rgba(168,85,247,0.7));">
+            <h1 data-i18n="finish">🏁 ПРОТОКОЛ ЗАВЕРШЕН</h1>
+            <div class="result-score" id="final-score">0%</div>
+            <p id="final-stats" data-i18n="avg_error">Точность локализации: 0°</p>
+            <p id="final-verdict" style="color: #a855f7; font-weight: bold; margin-bottom: 15px;"></p>
+            <button class="btn-action" onclick="resetAndRestart()" style="background:linear-gradient(135deg, #fbbf24, #f59e0b);" data-i18n="retry">🔄 ПОВТОРИТЬ ПРОТОКОЛ</button>
+        </div>
+    </div>
+
+    <img src="favicon.ico" alt="Logo" id="game-logo">
+
+    <!-- СТАТИСТИКА + ПРОГРЕСС -->
+    <div id="stats-panel">
+        <div class="stats-row">
+            <div class="stat-item">
+                <div class="stat-val" id="stage-val">Этап 1</div>
+                <div class="stat-lbl" data-i18n="stage">Уровень</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="score-val">100%</div>
+                <div class="stat-lbl" data-i18n="accuracy">Точность</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-val" id="target-val">0 / 20</div>
+                <div class="stat-lbl" data-i18n="signals">Сигналы</div>
+            </div>
+        </div>
+        <div id="session-progress-container">
+            <div id="session-progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- ИГРОВАЯ ЗОНА -->
+    <div id="game-area">
+        <canvas id="game-canvas"></canvas>
+        <div id="instruction-overlay" data-i18n="instruction">🎧 Жди сигнал... Свайпни к источнику</div>
+        <div id="stage-notification">
+            <h2 id="notif-title">ЭТАП 2</h2>
+            <p id="notif-desc">Шум увеличивается</p>
+        </div>
+    </div>
+
+    <!-- 🤝 ФУТЕР — ПОЛНЫЙ ТЕКСТ С I18N -->
+    <div id="donation-footer">
+        <h3>🤝 ПОДДЕРЖАТЬ ПРОЕКТ 💙</h3>
+        <p data-i18n="free">Приложение бесплатное. Было и останется.</p>
+        <p data-i18n="help">Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.</p>
+        
+        <div class="phone-box">
+            <div style="text-align: left;">
+                <div style="font-size:10px; color:#64748b; margin-bottom:3px;" data-i18n="phone_label">📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:</div>
+                <div class="phone-num" id="num-to-copy">8-920-227-56-76</div>
+            </div>
+            <button class="btn-copy" id="btn-copy-action" data-i18n="copy">📋 Копировать номер</button>
+        </div>
+        
+        <p style="font-size:10px; color:#4af626;" data-i18n="safe">✅ Деньги придут мгновенно. Без комиссии. Безопасно.</p>
+        <p style="font-size:12px; color:#f472b6; margin:8px 0;" data-i18n="thanks">❤️ Спасибо за поддержку!</p>
+        
+        <a href="https://ancf-hue.github.io/" target="_blank" class="main-link">
+            🌟 👉 https://ancf-hue.github.io/
+        </a>
+        <p style="font-size:10px; color:#64748b; margin-top:5px;" data-i18n="catalog">Каталог бесплатных офлайн-приложений Anti-AI Shield.</p>
+    </div>
+
+    <script>
+        // === ЯЗЫКИ ===
+        const i18n = {
+            ru: {
+                title: '🔊 КИБОРГ-АУДИО',
+                desc: '<strong>Урок 8:</strong> 3D-локализация звука.<br><br>🎧 <b>НАДЕНЬ НАУШНИКИ!</b><br>👆 Свайпни от центра радара туда, откуда слышишь шаги.<br>🔴 <b>Красная точка</b> на радаре показывает источник звука.<br><i>Протокол: <span class="highlight">5 Этапов</span>. Сложность растет.</i>',
+                start: '🎯 ЗАПУСТИТЬ ПРОТОКОЛ',
+                finish: '🏁 ПРОТОКОЛ ЗАВЕРШЕН', retry: '🔄 ПОВТОРИТЬ ПРОТОКОЛ',
+                stage: 'Уровень', accuracy: 'Точность', signals: 'Сигналы',
+                free: 'Приложение бесплатное. Было и останется.',
+                help: 'Если проект помог вам или вашим близким — можете поддержать разработку добровольным переводом.',
+                phone_label: '📱 ПЕРЕВОД ПО НОМЕРУ ТЕЛЕФОНА:',
+                copy: '📋 Копировать номер',
+                safe: '✅ Деньги придут мгновенно. Без комиссии. Безопасно.',
+                thanks: '❤️ Спасибо за поддержку!',
+                catalog: 'Каталог бесплатных офлайн-приложений Anti-AI Shield.',
+                audio_status: '⚡ Нажми, чтобы активировать звук',
+                test_audio: '🔊 ПРОВЕРИТЬ ЗВУК',
+                instruction: '🎧 Жди сигнал... Свайпни к источнику',
+                avg_error: 'Средняя ошибка: ',
+                verdict_pass: '🏆 АБСОЛЮТНЫЙ СЛУХ. Ты слышишь всё!',
+                verdict_good: '⚡ ХОРОШИЙ РЕЗУЛЬТАТ. Но шум сбивает с толку.',
+                verdict_fail: '📉 Тренируй слух! В реальном боу важна каждая секунда.',
+                copied: '✅ Скопировано',
+                sound_ready: '🎧 Звук готов',
+                sound_activate: '⚡ Нажми для активации звука',
+                sound_activating: '🔊 Активация звука...',
+                sound_error: '❌ Ошибка звука. Проверь разрешения',
+                sound_tested: '✅ Звук активен! Красная точка появится на радаре',
+                sound_ready_msg: '🎧 Готов к тренировке',
+                sound_not_init: '⚠️ Звук не инициализирован. Нажми "ПРОВЕРИТЬ ЗВУК"',
+                timeout_msg: '⏰ Ты не успел! Жди следующий сигнал',
+                hit_exact: '🎯 ТОЧНО! +6%',
+                hit_close: '⚠️ Ошибка ',
+                hit_far: '💀 ПРОМАХ ',
+                deg_suffix: '°'
+            },
+            en: {
+                title: '🔊 CYBORG AUDIO',
+                desc: '<strong>Lesson 8:</strong> 3D Sound Localization.<br><br>🎧 <b>WEAR HEADPHONES!</b><br>👆 Swipe from radar center toward the sound source.<br>🔴 <b>Red dot</b> on radar shows sound origin.<br><i>Protocol: <span class="highlight">5 Stages</span>. Difficulty increases.</i>',
+                start: '🎯 START PROTOCOL',
+                finish: '🏁 PROTOCOL COMPLETE', retry: '🔄 RETRY PROTOCOL',
+                stage: 'Stage', accuracy: 'Accuracy', signals: 'Signals',
+                free: 'The app is free. Always has been, always will be.',
+                help: 'If the project helped you or your loved ones — you can support development with a voluntary donation.',
+                phone_label: '📱 DONATE VIA PHONE:',
+                copy: '📋 Copy number',
+                safe: '✅ Instant transfer. No fees. Secure.',
+                thanks: '❤️ Thank you for your support!',
+                catalog: 'Catalog of free offline apps Anti-AI Shield.',
+                audio_status: '⚡ Tap to activate audio',
+                test_audio: '🔊 TEST AUDIO',
+                instruction: '🎧 Wait for signal... Swipe to source',
+                avg_error: 'Avg error: ',
+                verdict_pass: '🏆 ABSOLUTE HEARING. You hear everything!',
+                verdict_good: '⚡ GOOD RESULT. But noise confuses you.',
+                verdict_fail: '📉 Train your hearing! Every second counts in real combat.',
+                copied: '✅ Copied',
+                sound_ready: '🎧 Audio ready',
+                sound_activate: '⚡ Tap to activate audio',
+                sound_activating: '🔊 Activating audio...',
+                sound_error: '❌ Audio error. Check permissions',
+                sound_tested: '✅ Audio active! Red dot will appear on radar',
+                sound_ready_msg: '🎧 Ready for training',
+                sound_not_init: '⚠️ Audio not initialized. Tap "TEST AUDIO"',
+                timeout_msg: '⏰ Too late! Wait for next signal',
+                hit_exact: '🎯 EXACT! +6%',
+                hit_close: '⚠️ Error ',
+                hit_far: '💀 MISS ',
+                deg_suffix: '°'
+            }
+        };
+        let lang = localStorage.getItem('cyborg-lang') || 'ru';
+
+        function setLang(l) {
+            lang = l;
+            localStorage.setItem('cyborg-lang', lang);
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === l.toUpperCase());
+            });
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang][key]) {
+                    if (key === 'desc') el.innerHTML = i18n[lang][key];
+                    else el.textContent = i18n[lang][key];
+                }
+            });
+            // Обновляем динамические элементы
+            updateDynamicTexts();
+        }
+
+        function updateDynamicTexts() {
+            // Обновляем текст в инструкциях и статусах, если игра не запущена
+            const instr = document.getElementById('instruction-overlay');
+            const status = document.getElementById('audio-status-test');
+            if (!state.playing && instr) instr.textContent = i18n[lang].instruction;
+            if (status && !isAudioReady) status.textContent = i18n[lang].sound_activate;
+            else if (status && isAudioReady) status.textContent = i18n[lang].sound_ready;
+        }
+
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        const gameArea = document.getElementById('game-area');
+        
+        let audioCtx = null;
+        let panner = null;
+        let isAudioReady = false;
+        
+        const TARGETS_PER_STAGE = 20;
+        const MAX_STAGES = 5;
+        
+        // Визуализация свайпа
+        let feedback = { active: false, userAngle: 0, correctAngle: 0, alpha: 1, lastTime: 0 };
+        let sourcePosition = { active: false, angle: 0, alpha: 1, lastTime: 0 };
+
+        let state = {
+            playing: false,
+            stage: 1,
+            stageCount: 0,
+            total: 0,
+            score: 100,
+            avgError: 0,
+            errorSum: 0,
+            currentAngle: 0,
+            isPlayingSound: false,
+            noiseLevel: 0,
+            nextTargetTimeout: null
+        };
+
+        // 🎵 Инициализация аудио с очисткой старого контекста
+        async function initAudio() {
+            if (audioCtx && audioCtx.state !== 'closed') {
+                await audioCtx.close();
+                audioCtx = null;
+                panner = null;
+            }
+            
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                panner = audioCtx.createPanner();
+                panner.panningModel = 'HRTF';
+                panner.distanceModel = 'linear';
+                panner.refDistance = 1;
+                panner.maxDistance = 20;
+                panner.rolloffFactor = 1;
+                
+                const listener = audioCtx.listener;
+                if (listener.positionX) {
+                    listener.positionX.value = 0;
+                    listener.positionY.value = 0;
+                    listener.positionZ.value = 0;
+                    listener.forwardX.value = 0;
+                    listener.forwardY.value = 0;
+                    listener.forwardZ.value = -1;
+                    listener.upX.value = 0;
+                    listener.upY.value = 1;
+                    listener.upZ.value = 0;
+                } else {
+                    listener.setPosition(0, 0, 0);
+                    listener.setOrientation(0, 0, -1, 0, 1, 0);
+                }
+                
+                panner.connect(audioCtx.destination);
+                
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+                
+                isAudioReady = true;
+                console.log('✅ Audio Context готов');
+                updateDynamicTexts();
+                return true;
+            } catch (e) {
+                console.error('❌ Audio init failed:', e);
+                isAudioReady = false;
+                updateDynamicTexts();
+                return false;
+            }
+        }
+
+        // 🔊 Воспроизведение шага с 3D-позиционированием
+        async function playStep(angle) {
+            if (!isAudioReady || !audioCtx) {
+                await initAudio();
+                if (!isAudioReady) return;
+            }
+            
+            if (audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            
+            // Активируем красную точку на радаре
+            sourcePosition.active = true;
+            sourcePosition.angle = angle;
+            sourcePosition.alpha = 1;
+            sourcePosition.lastTime = Date.now();
+            
+            const radius = 3;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            
+            if (panner.positionX) {
+                panner.positionX.value = x;
+                panner.positionY.value = 0;
+                panner.positionZ.value = z;
+            } else {
+                panner.setPosition(x, 0, z);
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.15);
+            
+            filter.type = 'lowpass';
+            filter.frequency.value = 300 + (state.noiseLevel * 200);
+            
+            const volume = 0.6;
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(panner);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.25);
+            
+            const instr = document.getElementById('instruction-overlay');
+            instr.textContent = '🔊 ' + (lang === 'ru' ? 'ЗВУК ИГРАЕТ! 🔴 Следуй к красной точке' : 'SOUND PLAYING! 🔴 Follow the red dot');
+            instr.style.color = '#ef4444';
+            
+            setTimeout(() => {
+                if (sourcePosition.active) {
+                    sourcePosition.alpha = 0.8;
+                }
+            }, 300);
+        }
+
+        // 🔘 Кнопка проверки звука
+        async function initAndTestAudio() {
+            const statusDiv = document.getElementById('audio-status-test');
+            statusDiv.textContent = i18n[lang].sound_activating;
+            statusDiv.style.color = '#fbbf24';
+            
+            const success = await initAudio();
+            
+            if (success && audioCtx) {
+                await playStep(0);
+                statusDiv.textContent = i18n[lang].sound_tested;
+                statusDiv.style.color = '#4af626';
+                setTimeout(() => {
+                    statusDiv.textContent = i18n[lang].sound_ready_msg;
+                }, 2000);
+                
+                const btn = document.getElementById('btn-start-game');
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+            } else {
+                statusDiv.textContent = i18n[lang].sound_error;
+                statusDiv.style.color = '#ef4444';
+            }
+        }
+
+        // 🎮 Запуск игры
+        async function startGame() {
+            if (!isAudioReady) {
+                await initAudio();
+            }
+            
+            if (!isAudioReady) {
+                alert(i18n[lang].sound_not_init);
+                return;
+            }
+            
+            if (audioCtx && audioCtx.state === 'suspended') {
+                await audioCtx.resume();
+            }
+            
+            document.getElementById('start-overlay').style.display = 'none';
+            
+            if (state.nextTargetTimeout) clearTimeout(state.nextTargetTimeout);
+            
+            state.playing = true;
+            state.stage = 1;
+            state.stageCount = 0;
+            state.total = 0;
+            state.score = 100;
+            state.avgError = 0;
+            state.errorSum = 0;
+            state.noiseLevel = 0;
+            
+            updateUI();
+            showStageNotification(1);
+            
+            setTimeout(() => {
+                if (state.playing) nextTarget();
+            }, 800);
+        }
+
+        // 🔄 Следующая цель
+        async function nextTarget() {
+            if (!state.playing) return;
+            
+            if (state.stageCount >= TARGETS_PER_STAGE) {
+                if (state.stage < MAX_STAGES) {
+                    state.stage++;
+                    state.stageCount = 0;
+                    state.noiseLevel = (state.stage - 1) * 0.15;
+                    showStageNotification(state.stage);
+                    setTimeout(() => {
+                        if (state.playing) nextTarget();
+                    }, 2000);
+                } else {
+                    finishGame();
+                }
+                return;
+            }
+            
+            // Углы: простые на ранних этапах, случайные на поздних
+            if (state.stage < 3) {
+                const dirs = [0, 45, 90, 135, 180, 225, 270, 315];
+                const idx = Math.floor(Math.random() * dirs.length);
+                state.currentAngle = (dirs[idx] * Math.PI) / 180;
+            } else {
+                state.currentAngle = Math.random() * Math.PI * 2;
+            }
+            
+            state.isPlayingSound = true;
+            
+            await playStep(state.currentAngle).catch(e => console.warn('Play error:', e));
+            
+            if (state.nextTargetTimeout) clearTimeout(state.nextTargetTimeout);
+            state.nextTargetTimeout = setTimeout(() => {
+                if (state.isPlayingSound && state.playing) {
+                    state.isPlayingSound = false;
+                    state.score = Math.max(0, state.score - 15);
+                    state.stageCount++;
+                    state.total++;
+                    state.errorSum += 90;
+                    updateUI();
+                    
+                    const instr = document.getElementById('instruction-overlay');
+                    instr.textContent = i18n[lang].timeout_msg;
+                    instr.style.color = '#f97316';
+                    
+                    setTimeout(() => {
+                        if (state.playing) {
+                            instr.textContent = i18n[lang].instruction;
+                            instr.style.color = '#a855f7';
+                        }
+                    }, 1200);
+                    
+                    nextTarget();
+                }
+            }, 4000);
+        }
+
+        // 👆 Обработка свайпа
+        async function handleInput(angle) {
+            if (!state.isPlayingSound || !state.playing) return;
+            
+            if (state.nextTargetTimeout) clearTimeout(state.nextTargetTimeout);
+            state.isPlayingSound = false;
+            
+            feedback.active = true;
+            feedback.userAngle = angle;
+            feedback.correctAngle = state.currentAngle;
+            feedback.alpha = 1;
+            feedback.lastTime = Date.now();
+            
+            let diff = Math.abs(angle - state.currentAngle);
+            if (diff > Math.PI) diff = (Math.PI * 2) - diff;
+            const errorDeg = Math.round((diff / Math.PI) * 180);
+            
+            state.errorSum += errorDeg;
+            state.total++;
+            state.avgError = Math.round(state.errorSum / state.total);
+            
+            if (errorDeg < 15) {
+                state.score = Math.min(100, state.score + 6);
+            } else if (errorDeg < 45) {
+                state.score = Math.max(0, state.score - 5);
+            } else {
+                state.score = Math.max(0, state.score - 15);
+            }
+            
+            state.stageCount++;
+            updateUI();
+            
+            const instr = document.getElementById('instruction-overlay');
+            if (errorDeg < 15) {
+                instr.textContent = i18n[lang].hit_exact;
+                instr.style.color = '#4af626';
+            } else if (errorDeg < 45) {
+                instr.textContent = i18n[lang].hit_close + errorDeg + i18n[lang].deg_suffix + ' -5%';
+                instr.style.color = '#fbbf24';
+            } else {
+                instr.textContent = i18n[lang].hit_far + errorDeg + i18n[lang].deg_suffix + ' -15%';
+                instr.style.color = '#ef4444';
+            }
+            
+            setTimeout(() => {
+                if (state.playing) {
+                    instr.textContent = i18n[lang].instruction;
+                    instr.style.color = '#a855f7';
+                }
+            }, 1000);
+            
+            setTimeout(() => {
+                if (state.playing) nextTarget();
+            }, 800);
+        }
+
+        // 🎮 Управление: Touch
+        let startX = 0, startY = 0;
+        gameArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: false });
+        gameArea.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            const endX = e.changedTouches[0].clientX;
+            const endY = e.changedTouches[0].clientY;
+            const dx = endX - startX;
+            const dy = endY - startY;
+            if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+                handleInput(Math.atan2(dy, dx));
+            }
+        }, { passive: false });
+        
+        // 🎮 Управление: Mouse (ПК)
+        let mouseDown = false;
+        gameArea.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            startX = e.clientX;
+            startY = e.clientY;
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (mouseDown) {
+                mouseDown = false;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                if (Math.abs(dx) > 15 || Math.abs(dy) > 15) {
+                    handleInput(Math.atan2(dy, dx));
+                }
+            }
+        });
+
+        // 🎨 Отрисовка радара
+        function drawRadar() {
+            if (!canvas || !ctx) return;
+            const width = canvas.width;
+            const height = canvas.height;
+            if (width === 0 || height === 0) {
+                requestAnimationFrame(drawRadar);
+                return;
+            }
+            
+            const cx = width / 2;
+            const cy = height / 2;
+            const r = Math.min(cx, cy) - 20;
+            const now = Date.now();
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Фон радара
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.6)';
+            ctx.fill();
+            ctx.strokeStyle = '#a855f7';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Сетка
+            [0.33, 0.66].forEach(m => {
+                ctx.beginPath();
+                ctx.arc(cx, cy, r * m, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.3)';
+                ctx.stroke();
+            });
+            
+            // Оси
+            ctx.beginPath();
+            ctx.moveTo(cx, cy - r);
+            ctx.lineTo(cx, cy + r);
+            ctx.moveTo(cx - r, cy);
+            ctx.lineTo(cx + r, cy);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.2)';
+            ctx.stroke();
+            
+            // Центр (игрок)
+            ctx.beginPath();
+            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#fff';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+            ctx.fillStyle = '#a855f7';
+            ctx.fill();
+            
+            // 🔴 Красная точка (источник звука)
+            if (sourcePosition.active) {
+                const elapsed = now - sourcePosition.lastTime;
+                sourcePosition.alpha = Math.max(0, 1 - elapsed / 800);
+                
+                const pointX = cx + Math.cos(sourcePosition.angle) * (r * 0.85);
+                const pointY = cy + Math.sin(sourcePosition.angle) * (r * 0.85);
+                
+                // Свечение
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 12, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(239, 68, 68, ${sourcePosition.alpha * 0.3})`;
+                ctx.fill();
+                
+                // Точка
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 8, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(239, 68, 68, ${sourcePosition.alpha})`;
+                ctx.fill();
+                
+                // Сердцевина
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 3, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${sourcePosition.alpha * 0.9})`;
+                ctx.fill();
+                
+                // Пульсация
+                const pulse = Math.sin(now * 0.015) * 2;
+                ctx.beginPath();
+                ctx.arc(pointX, pointY, 12 + pulse, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(239, 68, 68, ${sourcePosition.alpha * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                if (sourcePosition.alpha <= 0) {
+                    sourcePosition.active = false;
+                }
+            }
+            
+            // 🎯 Визуализация ответа пользователя
+            if (feedback.active) {
+                const elapsed = now - feedback.lastTime;
+                feedback.alpha = Math.max(0, 1 - elapsed / 1000);
+                
+                // Правильное направление (пунктир)
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(feedback.correctAngle) * r, cy + Math.sin(feedback.correctAngle) * r);
+                ctx.strokeStyle = `rgba(168, 85, 247, ${feedback.alpha * 0.7})`;
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 6]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Направление пользователя
+                const isGood = Math.abs(feedback.userAngle - feedback.correctAngle) < 0.26;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(feedback.userAngle) * r, cy + Math.sin(feedback.userAngle) * r);
+                ctx.strokeStyle = isGood ? `rgba(74, 246, 38, ${feedback.alpha})` : `rgba(239, 68, 68, ${feedback.alpha})`;
+                ctx.lineWidth = 5;
+                ctx.stroke();
+                
+                const tipX = cx + Math.cos(feedback.userAngle) * r;
+                const tipY = cy + Math.sin(feedback.userAngle) * r;
+                ctx.beginPath();
+                ctx.arc(tipX, tipY, 7, 0, Math.PI * 2);
+                ctx.fillStyle = isGood ? `rgba(74, 246, 38, ${feedback.alpha})` : `rgba(239, 68, 68, ${feedback.alpha})`;
+                ctx.fill();
+                
+                if (feedback.alpha <= 0) feedback.active = false;
+            }
+            
+            requestAnimationFrame(drawRadar);
+        }
+
+        function showStageNotification(lvl) {
+            const notif = document.getElementById('stage-notification');
+            document.getElementById('notif-title').textContent = `ЭТАП ${lvl}`;
+            const descs_ru = ["🎯 Четкий сигнал", "🔁 Диагонали", "🌫 Фоновый шум", "🌀 Хаотичный звук", "💀 МАКСИМУМ"];
+            const descs_en = ["🎯 Clear signal", "🔁 Diagonals", "🌫 Background noise", "🌀 Chaotic sound", "💀 MAXIMUM"];
+            const descs = lang === 'ru' ? descs_ru : descs_en;
+            document.getElementById('notif-desc').textContent = descs[lvl-1] || `Level ${lvl}`;
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 1500);
+        }
+
+        function updateUI() {
+            document.getElementById('stage-val').textContent = `Этап ${state.stage}`;
+            document.getElementById('score-val').textContent = Math.floor(state.score) + '%';
+            document.getElementById('target-val').textContent = `${state.stageCount} / ${TARGETS_PER_STAGE}`;
+            const totalProgress = ((state.stage-1) * TARGETS_PER_STAGE + state.stageCount) / (TARGETS_PER_STAGE * MAX_STAGES) * 100;
+            document.getElementById('session-progress-bar').style.width = Math.min(totalProgress, 100) + '%';
+        }
+
+        function finishGame() {
+            state.playing = false;
+            if (state.nextTargetTimeout) clearTimeout(state.nextTargetTimeout);
+            
+            // === 🔥 ПАТЧ ДЛЯ ЛАУНЧЕРА ===
+            if (state.score >= 85 && state.avgError < 20) {
+                localStorage.setItem('lesson_8_passed', 'true');
+            } else {
+                localStorage.removeItem('lesson_8_passed');
+            }
+            // === КОНЕЦ ПАТЧА ===
+            
+            document.getElementById('final-score').textContent = Math.floor(state.score) + "%";
+            document.getElementById('final-stats').textContent = i18n[lang].avg_error + state.avgError + '°';
+            
+            let verdict = "";
+            let color = "#a855f7";
+            if (state.score >= 85 && state.avgError < 20) {
+                verdict = i18n[lang].verdict_pass; color = "#4af626";
+            } else if (state.score >= 70) {
+                verdict = i18n[lang].verdict_good; color = "#fbbf24";
+            } else {
+                verdict = i18n[lang].verdict_fail; color = "#ef4444";
+            }
+            
+            const el = document.getElementById('final-verdict');
+            el.textContent = verdict;
+            el.style.color = color;
+            document.getElementById('finish-overlay').style.display = 'flex';
+        }
+        
+        function resetAndRestart() {
+            document.getElementById('finish-overlay').style.display = 'none';
+            if (state.nextTargetTimeout) clearTimeout(state.nextTargetTimeout);
+            state = {
+                playing: false,
+                stage: 1,
+                stageCount: 0,
+                total: 0,
+                score: 100,
+                avgError: 0,
+                errorSum: 0,
+                currentAngle: 0,
+                isPlayingSound: false,
+                noiseLevel: 0,
+                nextTargetTimeout: null
+            };
+            sourcePosition.active = false;
+            feedback.active = false;
+            document.getElementById('start-overlay').style.display = 'flex';
+            const statusDiv = document.getElementById('audio-status-test');
+            if (isAudioReady) {
+                statusDiv.textContent = i18n[lang].sound_ready;
+                statusDiv.style.color = '#4af626';
+            } else {
+                statusDiv.textContent = i18n[lang].sound_activate;
+                statusDiv.style.color = '#fbbf24';
+            }
+            updateDynamicTexts();
+        }
+
+        document.getElementById('btn-copy-action').addEventListener('click', function() {
+            const num = document.querySelector('.phone-num').textContent;
+            navigator.clipboard.writeText(num).then(() => {
+                this.textContent = '✅ ' + i18n[lang].copy.replace('📋 ', '');
+                setTimeout(() => this.textContent = '📋 ' + i18n[lang].copy.replace('📋 ', ''), 1500);
+            });
+        });
+        
+        // ✅ Инициализация после полной загрузки DOM
+        window.addEventListener('load', () => {
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+            drawRadar();
+            setLang(lang); // Применяем язык при загрузке
+        });
+        
+        window.addEventListener('resize', () => {
+            canvas.width = gameArea.clientWidth;
+            canvas.height = gameArea.clientHeight;
+        });
+        
+        // Блокировка зума и жестов
+        document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturestart', (e) => e.preventDefault(), false);
+    </script>
+</body>
+</html>
